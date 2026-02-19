@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Test Client</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .messages {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 20px 0;
+      background: #fafafa;
+    }
+    .message {
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 4px;
+      background: #e3f2fd;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    input {
+      flex: 1;
+    }
+    button {
+      background: #2196F3;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1976D2;
+    }
+    .status {
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      background: #f0f0f0;
+    }
+    .connected {
+      background: #c8e6c9;
+      color: #2e7d32;
+    }
+    .disconnected {
+      background: #ffcdd2;
+      color: #c62828;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗨️ Chat Test Client</h1>
+    
+    <div id="status" class="status disconnected">
+      Desconectado
+    </div>
+
+    <div class="controls">
+      <input type="number" id="userId" placeholder="User ID" value="1">
+      <button onclick="authenticate()">Autenticar</button>
+    </div>
+
+    <div class="controls">
+      <input type="number" id="roomId" placeholder="Room ID" value="1">
+      <button onclick="joinRoom()">Unirse a Sala</button>
+      <button onclick="leaveRoom()">Salir de Sala</button>
+    </div>
+
+    <div class="controls">
+      <input type="text" id="messageInput" placeholder="Escribe un mensaje...">
+      <button onclick="sendMessage()">Enviar</button>
+    </div>
+
+    <div class="messages" id="messages"></div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    const socket = io('http://localhost:3000', {
+      transports: ['websocket', 'polling']
+    });
+
+    const statusEl = document.getElementById('status');
+    const messagesEl = document.getElementById('messages');
+
+    // Connection events
+    socket.on('connect', () => {
+      statusEl.textContent = `✅ Conectado (ID: ${socket.id})`;
+      statusEl.className = 'status connected';
+      addMessage('Sistema', 'Conectado al servidor');
+    });
+
+    socket.on('disconnect', () => {
+      statusEl.textContent = '❌ Desconectado';
+      statusEl.className = 'status disconnected';
+      addMessage('Sistema', 'Desconectado del servidor');
+    });
+
+    // Chat events
+    socket.on('message:new', (data) => {
+      addMessage(`User ${data.userId}`, data.content);
+    });
+
+    socket.on('user:joined', (data) => {
+      addMessage('Sistema', `Usuario ${data.userId} se unió a la sala`);
+    });
+
+    socket.on('user:left', (data) => {
+      addMessage('Sistema', `Usuario ${data.userId} salió de la sala`);
+    });
+
+    socket.on('user:typing', (data) => {
+      console.log(`User ${data.userId} está escribiendo...`);
+    });
+
+    // Functions
+    function authenticate() {
+      const userId = document.getElementById('userId').value;
+      socket.emit('authenticate', parseInt(userId));
+      addMessage('Sistema', `Autenticado como usuario ${userId}`);
+    }
+
+    function joinRoom() {
+      const roomId = document.getElementById('roomId').value;
+      socket.emit('join:room', parseInt(roomId));
+      addMessage('Sistema', `Intentando unirse a sala ${roomId}`);
+    }
+
+    function leaveRoom() {
+      const roomId = document.getElementById('roomId').value;
+      socket.emit('leave:room', parseInt(roomId));
+      addMessage('Sistema', `Saliendo de sala ${roomId}`);
+    }
+
+    function sendMessage() {
+      const content = document.getElementById('messageInput').value;
+      const roomId = document.getElementById('roomId').value;
+      const userId = document.getElementById('userId').value;
+
+      if (!content.trim()) return;
+
+      socket.emit('message:send', {
+        roomId: parseInt(roomId),
+        userId: parseInt(userId),
+        content: content
+      });
+
+      document.getElementById('messageInput').value = '';
+    }
+
+    function addMessage(sender, content) {
+      const messageEl = document.createElement('div');
+      messageEl.className = 'message';
+      messageEl.innerHTML = `<strong>${sender}:</strong> ${content}`;
+      messagesEl.appendChild(messageEl);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // Send message on Enter
+    document.getElementById('messageInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>
