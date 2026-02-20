@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="attachments">
     <input
       ref="fileInput"
@@ -83,7 +83,7 @@
     <div v-if="previewUrl" class="preview-overlay" @click.self="closePreview">
       <div class="preview-content">
         <div class="preview-actions">
-          <button class="ghost-btn icon-only" @click="openFullSize" aria-label="Tamaño real">?</button>
+          <button class="ghost-btn icon-only" @click="openFullSize" aria-label="Tamaño real"><HeroIcon name="arrows-pointing-out" /></button>
           <button class="close-x" @click="closePreview" aria-label="Cerrar">
             <HeroIcon name="x-circle" />
           </button>
@@ -228,7 +228,7 @@ async function startRecording() {
       }
     }, 1000)
   } catch (err) {
-    recordError.value = 'No se pudo acceder al micrófono'
+    recordError.value = 'No se pudo acceder al micrÃ³fono'
     stopRecording(true)
   }
 }
@@ -695,6 +695,9 @@ onBeforeUnmount(() => {
   max-height: 70vh;
 }
 </style>
+
+
+
 
 
 

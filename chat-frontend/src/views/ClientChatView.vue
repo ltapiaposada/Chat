@@ -186,9 +186,9 @@
                     </svg>
                   </button>
                   <span v-if="message.senderRole === 'client'" class="message-status" :class="message.status">
-                    <span v-if="message.status === 'sent'">?</span>
-                    <span v-else-if="message.status === 'delivered'">??</span>
-                    <span v-else-if="message.status === 'read'" class="read">??</span>
+                    <span v-if="message.status === 'sent'">✓</span>
+                    <span v-else-if="message.status === 'delivered'">✓✓</span>
+                    <span v-else-if="message.status === 'read'" class="read">✓✓</span>
                   </span>
                 </div>
               </div>
@@ -255,6 +255,7 @@
               {{ attachmentsRef?.recordLabel }}
             </span>
             <button 
+              v-if="!attachmentsRef?.isRecording"
               class="send-btn" 
               @click="sendMessage"
               :disabled="!messageInput.trim() && queuedCount === 0"
@@ -263,7 +264,7 @@
             </button>
           </div>
           <div class="input-row actions">
-            <div class="emoji-picker-wrapper">
+            <div class="emoji-picker-wrapper" ref="emojiPickerWrapperRef">
               <button 
                 class="emoji-btn" 
                 @click="showEmojiPicker = !showEmojiPicker"
@@ -336,6 +337,7 @@ const messagesContainer = ref<HTMLElement | null>(null)
 const viewingHistory = ref(false)
 const historyChat = ref<any>(null)
 const showEmojiPicker = ref(false)
+const emojiPickerWrapperRef = ref<HTMLElement | null>(null)
 const inputElement = ref<HTMLTextAreaElement | null>(null)
 const attachmentsRef = ref<any>(null)
 const queuedCount = ref(0)
@@ -387,10 +389,12 @@ onMounted(() => {
     chatStore.selectChat(chatStore.clientChat.id)
   }
   window.addEventListener('attachments:updated', handleAttachmentsUpdated as EventListener)
+  document.addEventListener('mousedown', handleDocumentClick)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('attachments:updated', handleAttachmentsUpdated as EventListener)
+  document.removeEventListener('mousedown', handleDocumentClick)
 })
 
 function startNewChat() {
@@ -428,7 +432,6 @@ function insertEmoji(emoji: string) {
   } else {
     messageInput.value += emoji
   }
-  showEmojiPicker.value = false
 }
 
 function viewHistoryChat(chatId: number) {
@@ -611,6 +614,17 @@ function handleAttachmentsUpdated(event: Event) {
   if (!optimisticByMessageId.value[detail.entityId]) return
   const { [detail.entityId]: _removed, ...rest } = optimisticByMessageId.value
   optimisticByMessageId.value = rest
+}
+
+function handleDocumentClick(event: MouseEvent) {
+  const target = event.target as Node
+  if (
+    showEmojiPicker.value &&
+    emojiPickerWrapperRef.value &&
+    !emojiPickerWrapperRef.value.contains(target)
+  ) {
+    showEmojiPicker.value = false
+  }
 }
 
 </script>
@@ -950,6 +964,7 @@ function handleAttachmentsUpdated(event: Event) {
 
 .input-row.primary {
   width: 100%;
+  min-width: 0;
 }
 
 .input-row.actions {
@@ -1032,6 +1047,7 @@ function handleAttachmentsUpdated(event: Event) {
 
 .input-area .message-input {
   flex: 1;
+  min-width: 0;
   padding: 0.75rem 1rem;
   border: 1px solid var(--color-border);
   border-radius: 24px;
@@ -1049,6 +1065,7 @@ function handleAttachmentsUpdated(event: Event) {
   justify-content: center;
   width: 40px;
   height: 40px;
+  flex-shrink: 0;
   border: 1px solid var(--color-border-strong);
   border-radius: 50%;
   background: white;
@@ -1075,6 +1092,8 @@ function handleAttachmentsUpdated(event: Event) {
   font-size: 0.8rem;
   color: var(--color-text-soft);
   min-width: 44px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .record-timer.limit {
@@ -1085,6 +1104,9 @@ function handleAttachmentsUpdated(event: Event) {
 .record-label {
   font-size: 0.75rem;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .record-error {
@@ -1099,6 +1121,7 @@ function handleAttachmentsUpdated(event: Event) {
 
 .send-btn {
   padding: 0.75rem 1.5rem;
+  flex-shrink: 0;
   border: none;
   border-radius: 24px;
   background: var(--color-primary);

@@ -197,7 +197,7 @@
             :busy="aiBusy"
             @select="applyAi"
           />
-          <div class="emoji-picker-wrapper">
+          <div class="emoji-picker-wrapper" ref="emojiPickerWrapperRef">
               <button 
                 class="emoji-btn" 
                 @click="showEmojiPicker = !showEmojiPicker"
@@ -257,6 +257,7 @@ const quickModalLabel = ref('')
 const quickModalText = ref('')
 const activePhraseIndex = ref(0)
 const inputAreaRef = ref<HTMLElement | null>(null)
+const emojiPickerWrapperRef = ref<HTMLElement | null>(null)
 const { getFiltered, addPhrase } = useQuickPhrases()
 const aiBusy = ref(false)
 const allAgents = ref<Agent[]>([])
@@ -607,7 +608,6 @@ function insertEmoji(emoji: string) {
   } else {
     messageInput.value += emoji
   }
-  showEmojiPicker.value = false
 }
 
 const attachmentTargetId = computed(() => {
@@ -665,8 +665,15 @@ function handleAttachmentsUpdated(event: Event) {
 }
 
 function handleDocumentClick(event: MouseEvent) {
-  if (!showQuickPanel.value) return
   const target = event.target as Node
+  if (
+    showEmojiPicker.value &&
+    emojiPickerWrapperRef.value &&
+    !emojiPickerWrapperRef.value.contains(target)
+  ) {
+    showEmojiPicker.value = false
+  }
+  if (!showQuickPanel.value) return
   if (inputAreaRef.value && !inputAreaRef.value.contains(target)) {
     showQuickPanel.value = false
     quickPhraseQuery.value = ''

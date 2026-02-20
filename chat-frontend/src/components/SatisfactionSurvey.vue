@@ -25,7 +25,7 @@
                 @mouseleave="hoverRating = 0"
               >
                 <span class="star" aria-hidden="true">
-                  <HeroIcon name="star" />
+                  {{ star <= (hoverRating || rating) ? '★' : '☆' }}
                 </span>
               </button>
             </div>
@@ -192,11 +192,6 @@ function submitSurvey() {
 .star-btn.active .star,
 .star-btn.hover .star {
   color: #f5c542;
-}
-
-.star svg {
-  width: 2.4rem;
-  height: 2.4rem;
 }
 
 .rating-label {

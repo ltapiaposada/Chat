@@ -231,7 +231,7 @@
             :busy="aiBusy"
             @select="applyAi"
           />
-          <div class="emoji-picker-wrapper">
+          <div class="emoji-picker-wrapper" ref="emojiPickerWrapperRef">
             <button class="emoji-btn" type="button" @click="showEmojiPicker = !showEmojiPicker">
               <HeroIcon name="face-smile" />
             </button>
@@ -322,6 +322,7 @@ const quickModalLabel = ref('')
 const quickModalText = ref('')
 const activePhraseIndex = ref(0)
 const inputAreaRef = ref<HTMLElement | null>(null)
+const emojiPickerWrapperRef = ref<HTMLElement | null>(null)
 const { getFiltered, addPhrase } = useQuickPhrases()
 const aiBusy = ref(false)
 const dragCounter = ref(0)
@@ -406,6 +407,14 @@ function toggleMenu() {
 
 function handleWindowClick(event: MouseEvent) {
   const target = event.target as HTMLElement | null
+  if (
+    showEmojiPicker.value &&
+    emojiPickerWrapperRef.value &&
+    target &&
+    !emojiPickerWrapperRef.value.contains(target)
+  ) {
+    showEmojiPicker.value = false
+  }
   if (showMenu.value) {
     if (target?.closest('.menu-wrapper')) return
     showMenu.value = false
@@ -595,7 +604,6 @@ function formatTime(date: Date): string {
 
 function insertEmoji(emoji: string) {
   messageInput.value += emoji
-  showEmojiPicker.value = false
 }
 
 const attachmentTargetId = computed(() => {

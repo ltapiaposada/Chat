@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="history-container">
     <div class="history-content">
       <div v-if="loading" class="loading-state">
@@ -9,7 +9,7 @@
       <div v-else-if="chatStore.agentChatHistory.length === 0" class="empty-state">
         <span class="empty-icon"><HeroIcon name="inbox" /></span>
         <h2>Sin historial</h2>
-        <p>Aún no tienes conversaciones cerradas</p>
+        <p>AÃºn no tienes conversaciones cerradas</p>
       </div>
 
       <div v-else class="history-table-wrapper">
@@ -19,8 +19,8 @@
               <th>Cliente</th>
               <th>Asunto</th>
               <th>Primera Respuesta</th>
-              <th>Duración</th>
-              <th>Calificación</th>
+              <th>DuraciÃ³n</th>
+              <th>CalificaciÃ³n</th>
               <th>Comentario</th>
               <th>Fecha</th>
             </tr>
@@ -38,18 +38,18 @@
                 <span v-if="chat.firstResponseSeconds != null" class="response-time" :class="getResponseClass(chat.firstResponseSeconds)">
                   {{ formatDuration(chat.firstResponseSeconds) }}
                 </span>
-                <span v-else class="no-response">—</span>
+                <span v-else class="no-response">â€”</span>
               </td>
               <td class="duration-cell">
                 <span v-if="chat.durationSeconds != null">
                   {{ formatDuration(chat.durationSeconds) }}
                 </span>
-                <span v-else>—</span>
+                <span v-else>â€”</span>
               </td>
               <td class="rating-cell">
                 <div v-if="chat.rating" class="rating-stars">
                   <span v-for="star in 5" :key="star" class="star" :class="{ filled: star <= chat.rating }" aria-hidden="true">
-                    <HeroIcon name="star" />
+                    {{ star <= chat.rating ? '\u2605' : '\u2606' }}
                   </span>
                 </div>
                 <span v-else class="no-rating">Sin calificar</span>
@@ -58,7 +58,7 @@
                 <span v-if="chat.feedback" class="feedback-text" :title="chat.feedback">
                   {{ truncate(chat.feedback, 50) }}
                 </span>
-                <span v-else class="no-feedback">—</span>
+                <span v-else class="no-feedback">â€”</span>
               </td>
               <td class="date-cell">{{ formatDate(chat.createdAt) }}</td>
             </tr>
@@ -76,7 +76,7 @@
         <div class="stat-card">
           <span class="stat-icon"><HeroIcon name="star" /></span>
           <span class="stat-value">{{ averageRating }}</span>
-          <span class="stat-label">Calificación promedio</span>
+          <span class="stat-label">CalificaciÃ³n promedio</span>
         </div>
         <div class="stat-card">
           <span class="stat-icon"><HeroIcon name="clock" /></span>
@@ -86,7 +86,7 @@
         <div class="stat-card">
           <span class="stat-icon"><HeroIcon name="chart-bar" /></span>
           <span class="stat-value">{{ averageDuration }}</span>
-          <span class="stat-label">Duración promedio</span>
+          <span class="stat-label">DuraciÃ³n promedio</span>
         </div>
       </div>
     </div>
@@ -154,21 +154,21 @@ function truncate(text: string, maxLength: number): string {
 
 const averageRating = computed(() => {
   const ratedChats = chatStore.agentChatHistory.filter(c => c.rating)
-  if (ratedChats.length === 0) return '—'
+  if (ratedChats.length === 0) return 'â€”'
   const avg = ratedChats.reduce((sum, c) => sum + (c.rating || 0), 0) / ratedChats.length
   return avg.toFixed(1)
 })
 
 const averageResponseTime = computed(() => {
   const chatsWithResponse = chatStore.agentChatHistory.filter(c => c.firstResponseSeconds !== undefined)
-  if (chatsWithResponse.length === 0) return '—'
+  if (chatsWithResponse.length === 0) return 'â€”'
   const avg = chatsWithResponse.reduce((sum, c) => sum + (c.firstResponseSeconds || 0), 0) / chatsWithResponse.length
   return formatDuration(Math.round(avg))
 })
 
 const averageDuration = computed(() => {
   const chatsWithDuration = chatStore.agentChatHistory.filter(c => c.durationSeconds !== undefined)
-  if (chatsWithDuration.length === 0) return '—'
+  if (chatsWithDuration.length === 0) return 'â€”'
   const avg = chatsWithDuration.reduce((sum, c) => sum + (c.durationSeconds || 0), 0) / chatsWithDuration.length
   return formatDuration(Math.round(avg))
 })
@@ -421,6 +421,8 @@ const averageDuration = computed(() => {
   }
 }
 </style>
+
+
 
 
 

@@ -151,9 +151,9 @@
                       </svg>
                     </button>
                     <span v-if="message.senderRole === 'agent'" class="message-status" :class="message.status">
-                      <span v-if="message.status === 'sent'">?</span>
-                      <span v-else-if="message.status === 'delivered'">??</span>
-                      <span v-else-if="message.status === 'read'" class="read">??</span>
+                      <span v-if="message.status === 'sent'">✓</span>
+                      <span v-else-if="message.status === 'delivered'">✓✓</span>
+                      <span v-else-if="message.status === 'read'" class="read">✓✓</span>
                     </span>
                   </div>
                 </div>
@@ -248,7 +248,7 @@
                 :busy="aiBusy"
                 @select="applyAi"
               />
-              <div class="emoji-picker-wrapper">
+              <div class="emoji-picker-wrapper" ref="emojiPickerWrapperRef">
               <button 
                 class="emoji-btn" 
                 @click="showEmojiPicker = !showEmojiPicker"
@@ -368,6 +368,7 @@ const quickModalLabel = ref('')
 const quickModalText = ref('')
 const activePhraseIndex = ref(0)
 const inputAreaRef = ref<HTMLElement | null>(null)
+const emojiPickerWrapperRef = ref<HTMLElement | null>(null)
 const { getFiltered, addPhrase } = useQuickPhrases()
 const aiBusy = ref(false)
 
@@ -389,15 +390,16 @@ function selectChat(chatId: number) {
 
 function sendMessage() {
   const content = messageInput.value.trim()
-  if (!content && queuedCount.value === 0) return
+  const hasAttachments = Boolean(attachmentsRef.value?.hasQueuedUploads?.() || queuedCount.value > 0)
+  if (!content && !hasAttachments) return
   let placeholder = ''
   const replyId = chatStore.replyingToMessage?.id
-  if (queuedCount.value > 0) {
+  if (hasAttachments) {
     awaitingAttachmentMessage.value = true
     pendingOptimistic.value = attachmentsRef.value?.getQueuedPreviews?.() || []
     placeholder = getAttachmentPlaceholder(pendingOptimistic.value)
   }
-  chatStore.agentSendMessage(content || placeholder, replyId, queuedCount.value > 0)
+  chatStore.agentSendMessage(content || placeholder, replyId, hasAttachments)
   messageInput.value = ''
   showQuickPanel.value = false
   chatStore.stopTyping()
@@ -661,7 +663,6 @@ function insertEmoji(emoji: string) {
   } else {
     messageInput.value += emoji
   }
-  showEmojiPicker.value = false
 }
 
 onMounted(() => {
@@ -717,8 +718,15 @@ function handleAttachmentsUpdated(event: Event) {
 }
 
 function handleDocumentClick(event: MouseEvent) {
-  if (!showQuickPanel.value) return
   const target = event.target as Node
+  if (
+    showEmojiPicker.value &&
+    emojiPickerWrapperRef.value &&
+    !emojiPickerWrapperRef.value.contains(target)
+  ) {
+    showEmojiPicker.value = false
+  }
+  if (!showQuickPanel.value) return
   if (inputAreaRef.value && !inputAreaRef.value.contains(target)) {
     showQuickPanel.value = false
     quickPhraseQuery.value = ''

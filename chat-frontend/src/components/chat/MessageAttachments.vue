@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div v-if="displayItems.length > 0" class="message-attachments">
     <template v-for="item in displayItems" :key="item.id">
       <img
@@ -28,7 +28,7 @@
     <div v-if="previewUrl" class="preview-overlay" @click.self="closePreview">
       <div class="preview-content">
         <div class="preview-actions">
-          <button class="ghost-btn icon-only" @click="openFullSize" aria-label="Tamaño real">?</button>
+          <button class="ghost-btn icon-only" @click="openFullSize" aria-label="Tamaño real"><HeroIcon name="arrows-pointing-out" /></button>
           <button class="close-x" @click="closePreview" aria-label="Cerrar">
             <HeroIcon name="x-circle" />
           </button>
@@ -256,6 +256,9 @@ watch(
   max-height: 70vh;
 }
 </style>
+
+
+
 
 
 

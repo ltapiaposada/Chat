@@ -392,8 +392,13 @@ class SocketService {
             channel: chat.channel || 'web'
           });
 
-          // If WhatsApp chat, send to WhatsApp API (only when content is not empty and no attachments)
-          if (chat.channel === 'whatsapp' && content && String(content).trim().length > 0 && !hasAttachments) {
+          // If WhatsApp chat, send plain text when message is not just an attachment placeholder.
+          const textContent = String(content || '').trim();
+          const isAttachmentPlaceholder =
+            textContent === 'Adjunto' ||
+            textContent === 'Nota de audio' ||
+            textContent === 'Nota de voz';
+          if (chat.channel === 'whatsapp' && textContent.length > 0 && !isAttachmentPlaceholder && !hasAttachments) {
             try {
               const client = await userRepository.findById(chat.clientId);
               const replyExternalId = replyToId
@@ -405,17 +410,19 @@ class SocketService {
                   messageId: message.id,
                   replyToId: replyToId || null,
                   replyExternalId: replyExternalId || null,
-                  textPreview: String(content).slice(0, 50)
+                  textPreview: textContent.slice(0, 50)
                 });
                 const externalId = await whatsappService.sendText({
                   to: client.whatsapp_id,
-                  text: content,
+                  text: textContent,
                   replyToMessageId: replyExternalId || null
                 });
                 if (externalId) {
                   await messageRepository.updateExternalMessageId(message.id, externalId);
                   message.externalMessageId = externalId;
                 }
+              } else {
+                console.warn(`WhatsApp send skipped: client ${chat.clientId} has no whatsapp_id`);
               }
             } catch (waError) {
               console.error('Error sending WhatsApp message:', waError);
