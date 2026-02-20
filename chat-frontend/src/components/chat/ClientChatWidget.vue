@@ -1288,16 +1288,100 @@ function handleDocumentClick(event: MouseEvent) {
 }
 
 /* Mobile responsive */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .chat-widget {
+    width: min(460px, calc(100vw - 40px));
+    max-width: min(460px, calc(100vw - 40px));
+    height: min(720px, calc(100dvh - 130px));
+    max-height: calc(100dvh - 130px);
+    right: 20px;
+    bottom: 96px;
+  }
+
+  .widget-header {
+    padding: 0.85rem;
+  }
+
+  .messages-container {
+    padding: 0.8rem;
+  }
+
+  .input-area {
+    padding: 0.7rem;
+  }
+}
+
 @media (max-width: 480px) {
   .chat-widget {
-    bottom: 0;
-    right: 0;
-    left: 0;
-    width: 100%;
-    max-width: 100%;
-    height: calc(100vh - 80px);
-    max-height: none;
-    border-radius: 16px 16px 0 0;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    height: min(640px, calc(100dvh - 92px - env(safe-area-inset-bottom)));
+    max-height: calc(100dvh - 92px - env(safe-area-inset-bottom));
+    border-radius: 16px;
+  }
+
+  .widget-header {
+    padding: 0.75rem;
+  }
+
+  .header-info {
+    gap: 0.5rem;
+  }
+
+  .header-info h2 {
+    font-size: 1rem;
+  }
+
+  .status-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .messages-container {
+    padding: 0.6rem;
+    gap: 0.6rem;
+  }
+
+  .message-avatar {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    font-size: 0.65rem;
+  }
+
+  .message-content {
+    max-width: calc(100% - 36px);
+  }
+
+  .message-bubble {
+    max-width: 88%;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .input-area {
+    padding: 0.6rem;
+    padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+    gap: 0.4rem;
+  }
+
+  .input-area input {
+    font-size: 0.85rem;
+    padding: 0.55rem 0.7rem;
+  }
+
+  .mic-btn,
+  .send-btn,
+  .attach-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .emoji-picker :deep(em-emoji-picker) {
+    width: min(320px, calc(100vw - 28px));
   }
 
   .input-row.primary {
@@ -1305,6 +1389,126 @@ function handleDocumentClick(event: MouseEvent) {
   }
 
   .input-row.actions {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-widget {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .widget-header {
+    padding-top: calc(0.65rem + env(safe-area-inset-top));
+  }
+
+  .input-area {
+    padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 390px), (max-width: 480px) and (max-height: 700px) {
+  .chat-widget {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .widget-header {
+    padding: 0.65rem;
+  }
+
+  .header-actions {
+    gap: 0.35rem;
+  }
+
+  .sound-toggle,
+  .close-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .chat-status-bar {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .start-chat-prompt {
+    padding: 0.75rem;
+  }
+
+  .prompt-content h3 {
+    font-size: 1rem;
+  }
+
+  .prompt-content p {
+    font-size: 0.82rem;
+  }
+
+  .subject-input input {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .start-btn {
+    width: 100%;
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .history-section {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+  }
+
+  .history-item {
+    padding: 0.5rem;
+  }
+
+  .history-subject {
+    font-size: 0.8rem;
+  }
+
+  .history-date {
+    font-size: 0.65rem;
+  }
+
+  .message-bubble {
+    max-width: 92%;
+    font-size: 0.82rem;
+  }
+
+  .input-area {
+    padding: 0.5rem;
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+
+  .input-row {
+    gap: 0.35rem;
+  }
+
+  .record-label {
+    display: none;
+  }
+
+  .chat-actions,
+  .chat-ended-actions,
+  .history-footer {
+    padding: 0.45rem 0.6rem;
+  }
+
+  .end-chat-btn,
+  .new-chat-btn {
     width: 100%;
   }
 }

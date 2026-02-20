@@ -1364,6 +1364,46 @@ function handleDragLeave() {
   padding: 0.5rem 0;
 }
 
+@media (min-width: 769px) and (max-width: 1200px) {
+  .group-chat-container {
+    gap: 0.6rem;
+  }
+
+  .groups-sidebar {
+    width: 210px;
+    min-width: 210px;
+    margin: 0.6rem 0 0.6rem 0.6rem;
+  }
+
+  .members-sidebar {
+    width: 250px;
+    min-width: 250px;
+  }
+
+  .chat-area {
+    margin: 0.6rem 0.6rem 0.6rem 0;
+  }
+
+  .chat-header {
+    margin: 0 0.5rem 0.5rem 0;
+    padding: 0.7rem 1rem;
+  }
+
+  .mensajes-container {
+    padding: 1rem 1rem 1rem 0.75rem;
+    margin-right: 0.4rem;
+  }
+
+  .message {
+    max-width: 78%;
+  }
+
+  .input-area {
+    margin: 0 0.5rem 0.3rem 0;
+    padding: 0.65rem 0.75rem;
+  }
+}
+
 @media (max-width: 900px) {
   .members-sidebar {
     display: none;
@@ -1371,8 +1411,47 @@ function handleDragLeave() {
 }
 
 @media (max-width: 768px) {
+  .group-chat-container {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
   .groups-sidebar {
-    display: none;
+    width: auto;
+    min-width: 0;
+    margin: 0.5rem 0.5rem 0;
+    border-radius: 10px;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .groups-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .group-item {
+    border: 1px solid var(--color-border);
+    padding: 0.6rem;
+  }
+
+  .chat-area {
+    margin: 0 0.5rem 0.5rem;
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+    background: white;
+  }
+
+  .chat-header {
+    margin: 0;
+    border-radius: 0;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .mensajes-container {
+    margin-right: 0;
+    padding: 0.75rem;
   }
 
   .message {
@@ -1380,11 +1459,12 @@ function handleDragLeave() {
   }
 
   .input-area {
-    padding: 0.75rem 1rem;
+    margin: 0.25rem 0.5rem 0.5rem;
+    padding: 0.65rem 0.75rem;
   }
 
   .send-btn {
-    padding: 0.75rem 1rem;
+    padding: 0.7rem 0.9rem;
   }
 
   .input-row.primary {
@@ -1393,6 +1473,28 @@ function handleDragLeave() {
 
   .input-row.actions {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .groups-list {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .chat-title h2 {
+    font-size: 0.95rem;
+  }
+
+  .message {
+    max-width: 92%;
+  }
+
+  .input-row {
+    gap: 0.45rem;
+  }
+
+  .record-label {
+    display: none;
   }
 }
 </style>

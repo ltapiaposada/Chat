@@ -1347,13 +1347,131 @@ function handleDocumentClick(event: MouseEvent) {
   color: var(--color-info);
 }
 
+@media (min-width: 769px) and (max-width: 1200px) {
+  .dashboard-content {
+    grid-template-columns: 250px 1fr;
+    padding: 0.6rem;
+    gap: 0.6rem;
+  }
+
+  .sidebar-header {
+    padding: 0.75rem;
+  }
+
+  .chat-item {
+    padding: 0.75rem;
+  }
+
+  .chat-header {
+    padding: 0.75rem 1rem;
+    gap: 0.6rem;
+  }
+
+  .chat-controls {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .mensajes-container {
+    padding: 0.75rem;
+  }
+
+  .input-area {
+    padding: 0.65rem 0.75rem;
+  }
+}
+
 @media (max-width: 768px) {
+  .dashboard-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .chats-sidebar {
+    max-height: 34dvh;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .chats-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.4rem;
+    padding: 0.5rem;
+  }
+
+  .chat-item {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 0.75rem;
+  }
+
+  .chat-item.active {
+    border-left: 1px solid var(--color-primary);
+    box-shadow: inset 3px 0 0 var(--color-primary);
+  }
+
+  .chat-area {
+    min-height: 0;
+  }
+
+  .chat-header {
+    padding: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .chat-controls {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .mensajes-container {
+    padding: 0.75rem;
+  }
+
+  .input-area {
+    padding: 0.6rem 0.75rem;
+  }
+
   .input-row.primary {
     width: 100%;
   }
 
   .input-row.actions {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .chats-sidebar {
+    max-height: 42dvh;
+  }
+
+  .chats-list {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-info h2 {
+    font-size: 0.95rem;
+  }
+
+  .hold-btn,
+  .resume-btn,
+  .close-btn,
+  .transfer-btn {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.55rem;
+  }
+
+  .message {
+    max-width: 92%;
+  }
+
+  .record-label {
+    display: none;
   }
 }
 

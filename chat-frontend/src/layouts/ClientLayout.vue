@@ -8,14 +8,14 @@
       </div>
 
       <nav class="sidebar-nav">
-        <router-link to="/client" class="nav-item" active-class="active">
+        <router-link to="/client" class="nav-item" exact-active-class="active">
           <span class="nav-icon"><HeroIcon name="home" /></span>
           <span class="nav-text">Inicio</span>
         </router-link>
 
-        <router-link to="/client/history" class="nav-item" active-class="active">
+        <router-link to="/client/history" class="nav-item" exact-active-class="active">
           <span class="nav-icon"><HeroIcon name="clipboard-document-list" /></span>
-          <span class="nav-text">Mis Conversaciones</span>
+          <span class="nav-text">Mis Chats</span>
           <span v-if="closedChatsCount > 0" class="nav-badge">
             {{ closedChatsCount }}
           </span>
@@ -76,7 +76,7 @@ const chatStore = useChatStore()
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
     'client-home': 'Bienvenido',
-    'client-history': 'Mis Conversaciones'
+    'client-history': 'Mis Chats'
   }
   return titles[route.name as string] || 'Soporte'
 })
@@ -118,7 +118,9 @@ function handleLogout() {
 .client-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   background: var(--color-bg);
+  min-width: 0;
 }
 
 /* Sidebar */
@@ -259,6 +261,7 @@ function handleLogout() {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 /* Navbar */
@@ -334,75 +337,139 @@ function handleLogout() {
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (min-width: 641px) and (max-width: 1024px) {
   .sidebar {
-    width: 70px;
-    min-width: 70px;
+    width: 210px;
+    min-width: 210px;
   }
 
-  .sidebar-header h2,
-  .nav-text,
-  .user-details {
-    display: none;
+  .sidebar-footer {
+    padding: 0.75rem 1rem;
   }
 
   .sidebar-header {
-    justify-content: center;
     padding: 1rem;
   }
 
+  .sidebar-nav {
+    padding: 0.75rem 0;
+    gap: 0.4rem;
+  }
+
   .nav-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.25rem;
-  margin: 0 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
-  text-decoration: none;
-  transition: all 0.2s;
-  position: relative;
-  border-radius: 12px;
-  min-height: 44px;
-}
-
-  .nav-badge {
-  margin-left: auto;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-  .user-info {
-    justify-content: center;
+    justify-content: flex-start;
+    margin: 0 0.6rem;
+    padding: 0.65rem 0.8rem;
   }
 
   .navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1.5rem;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  min-height: 60px;
-}
-
-  .btn-text {
-    display: none;
+    padding: 0.65rem 1rem;
   }
 
   .page-title {
-  margin: 0;
-  font-size: 1.2rem;
-  color: var(--color-text);
-  font-weight: 600;
+    font-size: 1.05rem;
+  }
 }
+
+@media (max-width: 640px) {
+  .client-layout {
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    min-width: 0;
+    height: calc(62px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 40;
+    flex-direction: row;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .sidebar-header,
+  .sidebar-footer {
+    display: none;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    padding: 0.35rem;
+    gap: 0.35rem;
+  }
+
+  .nav-item {
+    flex: 1;
+    margin: 0;
+    justify-content: center;
+    padding: 0.55rem 0.35rem;
+    min-height: 46px;
+  }
+
+  .nav-item.active {
+    box-shadow: none;
+    background: transparent;
+    border: none;
+  }
+
+  .nav-item .nav-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .nav-item:hover {
+    background: transparent;
+  }
+
+  .nav-item:hover .nav-icon {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .nav-item.active .nav-icon {
+    background: rgba(255, 255, 255, 0.24);
+    color: #ffffff;
+  }
+
+  .nav-text {
+    display: none;
+  }
+
+  .nav-badge {
+    position: absolute;
+    top: 6px;
+    left: calc(50% + 8px);
+    right: auto;
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.65rem;
+    background: #ffb300;
+    color: #1f2933;
+  }
+
+  .main-wrapper {
+    padding-bottom: calc(62px + env(safe-area-inset-bottom));
+  }
+
+  .navbar {
+    padding: 0.55rem 0.75rem;
+    min-height: 52px;
+  }
+
+  .page-title {
+    font-size: 1rem;
+    max-width: 65vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 </style>
 

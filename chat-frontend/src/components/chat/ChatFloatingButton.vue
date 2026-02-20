@@ -1,7 +1,7 @@
 <template>
   <button 
     class="chat-floating-btn"
-    :class="{ 'has-unread': (unreadCount ?? 0) > 0 }"
+    :class="{ 'has-unread': (unreadCount ?? 0) > 0, 'is-open': isOpen }"
     @click="$emit('toggle')"
     :title="isOpen ? 'Cerrar chat' : 'Abrir chat'"
   >
@@ -52,6 +52,53 @@ defineEmits<{
 
 .chat-floating-btn:active {
   transform: scale(0.95);
+}
+
+@media (max-width: 480px) {
+  .chat-floating-btn {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    width: 56px;
+    height: 56px;
+  }
+}
+
+@media (max-width: 390px), (max-width: 480px) and (max-height: 700px) {
+  .chat-floating-btn {
+    width: 52px;
+    height: 52px;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  .btn-icon {
+    font-size: 1.5rem;
+  }
+
+  .close-icon {
+    font-size: 1.35rem;
+  }
+
+  .unread-badge {
+    min-width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-floating-btn {
+    bottom: calc(74px + env(safe-area-inset-bottom));
+  }
+
+  .unread-badge {
+    top: -1px;
+    right: -1px;
+  }
+
+  .chat-floating-btn.is-open {
+    display: none;
+  }
 }
 
 .btn-icon {
