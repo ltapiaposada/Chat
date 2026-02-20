@@ -121,3 +121,20 @@ Este proyecto sigue los principios de Clean Architecture:
 - **Application**: Orquesta los casos de uso del dominio
 - **Infrastructure**: Implementaciones concretas (base de datos, APIs externas)
 - **Presentation**: Capa de entrada (rutas, controladores, middlewares de Fastify)
+
+## Despliegue en Render
+
+Este repo incluye `render.yaml` en la raiz para crear:
+- servicio web `chat-backend` (Node)
+- base de datos PostgreSQL `chat-postgres`
+
+Variables clave en Render (servicio backend):
+- `DATABASE_URL`: se conecta desde `chat-postgres`
+- `CLIENT_URL`: URL del frontend en Vercel (por ejemplo `https://tu-app.vercel.app`)
+- `CORS_ORIGINS`: origenes adicionales separados por coma (opcional)
+- `ALLOW_VERCEL_PREVIEWS=true`: permite previews `*.vercel.app`
+- `GEMINI_*`, `WHATSAPP_*`, `CLOUDINARY_URL`: segun los servicios usados
+
+Notas:
+- El backend ahora soporta `DATABASE_URL` y SSL (`DB_SSL`, `DB_SSL_REJECT_UNAUTHORIZED`).
+- CORS y Socket.IO comparten la misma validacion de origenes.

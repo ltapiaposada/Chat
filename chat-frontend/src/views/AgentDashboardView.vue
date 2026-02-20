@@ -446,7 +446,7 @@ function getSlashQuery(value: string, cursorPos: number) {
   const before = value.slice(0, cursorPos)
   const slashIndex = before.lastIndexOf('/')
   if (slashIndex === -1) return null
-  if (slashIndex > 0 && !/\s/.test(before[slashIndex - 1])) return null
+  if (slashIndex > 0 && !/\s/.test(before.charAt(slashIndex - 1))) return null
   const query = before.slice(slashIndex + 1)
   if (query.includes(' ')) return null
   return query
@@ -508,7 +508,8 @@ function handleInputKeydown(event: KeyboardEvent) {
       activePhraseIndex.value = (activePhraseIndex.value - 1 + list.length) % list.length
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      applyQuickPhrase(list[activePhraseIndex.value])
+      const selected = list[activePhraseIndex.value]
+      if (selected) applyQuickPhrase(selected)
     } else if (event.key === 'Escape') {
       event.preventDefault()
       showQuickPanel.value = false
@@ -627,7 +628,8 @@ const attachmentTargetId = computed(() => {
   if (chatStore.replyingToMessage?.id) return chatStore.replyingToMessage.id
   const mensajes = chatStore.currentMessages
   for (let i = mensajes.length - 1; i >= 0; i -= 1) {
-    if (mensajes[i].senderRole === 'agent') return mensajes[i].id
+    const mensaje = mensajes[i]
+    if (mensaje && mensaje.senderRole === 'agent') return mensaje.id
   }
   return null
 })

@@ -34,6 +34,20 @@ VITE_API_URL=http://localhost:3000
 VITE_SOCKET_URL=http://localhost:3000
 ```
 
+## Despliegue en Vercel
+
+Este frontend se puede desplegar en Vercel usando `chat-frontend` como Root Directory.
+
+Variables requeridas en Vercel:
+- `VITE_API_URL`: URL publica del backend en Render (ej. `https://chat-backend.onrender.com`)
+- `VITE_SOCKET_URL`: misma URL publica del backend en Render
+
+Archivo de soporte incluido:
+- `vercel.json`: agrega rewrite a `index.html` para rutas SPA de Vue Router.
+
+Importante:
+- En Render debes configurar `CLIENT_URL` con la URL de Vercel para habilitar CORS y Socket.IO.
+
 ## Uso
 
 ### Modo desarrollo

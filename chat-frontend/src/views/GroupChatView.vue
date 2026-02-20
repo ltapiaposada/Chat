@@ -485,7 +485,7 @@ function getSlashQuery(value: string, cursorPos: number) {
   const before = value.slice(0, cursorPos)
   const slashIndex = before.lastIndexOf('/')
   if (slashIndex === -1) return null
-  if (slashIndex > 0 && !/\s/.test(before[slashIndex - 1])) return null
+  if (slashIndex > 0 && !/\s/.test(before.charAt(slashIndex - 1))) return null
   const query = before.slice(slashIndex + 1)
   if (query.includes(' ')) return null
   return query
@@ -547,7 +547,8 @@ function handleInputKeydown(event: KeyboardEvent) {
       activePhraseIndex.value = (activePhraseIndex.value - 1 + list.length) % list.length
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      applyQuickPhrase(list[activePhraseIndex.value])
+      const selected = list[activePhraseIndex.value]
+      if (selected) applyQuickPhrase(selected)
     } else if (event.key === 'Escape') {
       event.preventDefault()
       showQuickPanel.value = false
@@ -602,7 +603,8 @@ const attachmentTargetId = computed(() => {
   if (messageInput.value.trim()) return null
   const mensajes = currentMessages.value
   for (let i = mensajes.length - 1; i >= 0; i -= 1) {
-    if (mensajes[i].senderId === authStore.userId) return mensajes[i].id
+    const mensaje = mensajes[i]
+    if (mensaje && mensaje.senderId === authStore.userId) return mensaje.id
   }
   return null
 })
@@ -620,7 +622,10 @@ watch(
   () => groupChats.value.length,
   (len) => {
     if (!selectedGroupId.value && len > 0) {
-      selectGroup(groupChats.value[0].id)
+      const firstGroup = groupChats.value[0]
+      if (firstGroup) {
+        selectGroup(firstGroup.id)
+      }
     }
   }
 )

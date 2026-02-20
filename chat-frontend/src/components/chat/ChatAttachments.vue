@@ -350,7 +350,10 @@ async function uploadFiles(files: File[], options: { force?: boolean } = {}) {
       if (success) {
         const index = pendingUploads.value.findIndex(p => p.id === tempId)
         if (index >= 0) {
-          URL.revokeObjectURL(pendingUploads.value[index].url)
+          const pendingItem = pendingUploads.value[index]
+          if (pendingItem) {
+            URL.revokeObjectURL(pendingItem.url)
+          }
           pendingUploads.value.splice(index, 1)
           emit('queueChanged', queuedFiles.value.length + pendingUploads.value.length)
         }
@@ -375,7 +378,10 @@ async function removeAttachment(id: number) {
 function removeQueued(id: string) {
   const index = queuedFiles.value.findIndex(q => q.id === id)
   if (index >= 0) {
-    URL.revokeObjectURL(queuedFiles.value[index].url)
+    const queued = queuedFiles.value[index]
+    if (queued) {
+      URL.revokeObjectURL(queued.url)
+    }
     queuedFiles.value.splice(index, 1)
     emit('queueChanged', queuedFiles.value.length + pendingUploads.value.length)
   }

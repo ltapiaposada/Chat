@@ -511,7 +511,8 @@ const attachmentTargetId = computed(() => {
   if (chatStore.replyingToMessage?.id) return chatStore.replyingToMessage.id
   const messages = chatStore.currentMessages
   for (let i = messages.length - 1; i >= 0; i -= 1) {
-    if (messages[i].senderRole === 'client') return messages[i].id
+    const message = messages[i]
+    if (message && message.senderRole === 'client') return message.id
   }
   return null
 })

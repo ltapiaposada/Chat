@@ -6,6 +6,7 @@ const { ensureSchema } = require('./infrastructure/database/ensureSchema');
 const socketService = require('./infrastructure/websocket/socket');
 const storageChatRoutes = require('./routes/storageChat');
 const whatsappRoutes = require('./routes/whatsapp');
+const { createCorsOriginValidator, getAllowedOrigins } = require('./config/origins');
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
@@ -31,7 +32,7 @@ const AI_ACTIONS = {
 
 // Enable CORS for all routes
 fastify.register(require('@fastify/cors'), {
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: createCorsOriginValidator(),
   credentials: true
 });
 
@@ -197,6 +198,7 @@ const start = async () => {
     const port = process.env.PORT || 3000;
     await fastify.listen({ port, host: '0.0.0.0' });
     console.log(`ðŸš€ Server listening on port ${port}`);
+    console.log(`ðŸŒ Allowed origins: ${getAllowedOrigins().join(', ')}`);
 
     // Initialize Socket.IO
     socketService.initialize(fastify.server);

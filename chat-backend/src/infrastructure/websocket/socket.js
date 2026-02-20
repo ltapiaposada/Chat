@@ -8,6 +8,7 @@ const groupMessageRepository = require('../repositories/GroupMessageRepository')
 const agentDmRepository = require('../repositories/AgentDmRepository');
 const unreadRepository = require('../repositories/UnreadRepository');
 const whatsappService = require('../../services/whatsappService');
+const { createCorsOriginValidator } = require('../../config/origins');
 
 class SocketService {
   constructor() {
@@ -21,7 +22,7 @@ class SocketService {
   async initialize(server) {
     this.io = new Server(server, {
       cors: {
-        origin: process.env.CLIENT_URL || 'http://localhost:5173',
+        origin: createCorsOriginValidator(),
         methods: ['GET', 'POST'],
         credentials: true
       },
