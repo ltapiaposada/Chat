@@ -81,7 +81,6 @@
             <div class="chat-info">
               <h2>{{ chatStore.currentChat?.clientName || `Cliente #${chatStore.currentChat?.clientId}` }}</h2>
               <span class="chat-subject">{{ chatStore.currentChat?.subject }}</span>
-              <span v-if="chatStore.currentChat?.channel === 'whatsapp'" class="channel-badge header-badge">WhatsApp</span>
             </div>
             <div class="chat-controls">
               <button 
@@ -779,11 +778,6 @@ function handleDocumentClick(event: MouseEvent) {
   background: var(--color-info-soft-2);
   color: var(--color-info-strong);
   border: 1px solid var(--color-info-border);
-}
-
-.header-badge {
-  margin-left: 0;
-  margin-top: 0.35rem;
 }
 
 .chats-sidebar {

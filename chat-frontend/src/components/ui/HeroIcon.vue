@@ -6,6 +6,7 @@
 import { computed } from 'vue'
 import {
   ArrowPathIcon,
+  ArrowsPointingOutIcon,
   ArrowsRightLeftIcon,
   ArrowRightOnRectangleIcon,
   ChartBarIcon,
@@ -47,6 +48,7 @@ const props = defineProps<{
 
 const icons: Record<string, any> = {
   'arrow-path': ArrowPathIcon,
+  'arrows-pointing-out': ArrowsPointingOutIcon,
   'arrow-right-left': ArrowsRightLeftIcon,
   'arrow-right-on-rectangle': ArrowRightOnRectangleIcon,
   'chart-bar': ChartBarIcon,
