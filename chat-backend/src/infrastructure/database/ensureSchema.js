@@ -90,45 +90,16 @@ async function ensureSchema(db) {
   `);
 
   // Quick phrases (global)
+  // Keep schema creation non-destructive; data migrations should be handled explicitly.
   await db.query(`
-    DO $$
-    BEGIN
-      IF EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'quick_phrases' AND column_name = 'user_id'
-      ) THEN
-        CREATE TABLE IF NOT EXISTS quick_phrases_new (
-          id SERIAL PRIMARY KEY,
-          label VARCHAR(100) NOT NULL,
-          text TEXT NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE (label)
-        );
-
-        INSERT INTO quick_phrases_new (label, text, created_at, updated_at)
-        SELECT qp.label, qp.text, qp.created_at, qp.updated_at
-        FROM quick_phrases qp
-        JOIN users u ON u.id = qp.user_id
-        WHERE u.email = 'agent1@support.com'
-        ON CONFLICT (label) DO UPDATE SET
-          text = EXCLUDED.text,
-          updated_at = CURRENT_TIMESTAMP;
-
-        DROP TABLE quick_phrases;
-        ALTER TABLE quick_phrases_new RENAME TO quick_phrases;
-      ELSE
-        CREATE TABLE IF NOT EXISTS quick_phrases (
-          id SERIAL PRIMARY KEY,
-          label VARCHAR(100) NOT NULL,
-          text TEXT NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE (label)
-        );
-      END IF;
-    END $$;
+    CREATE TABLE IF NOT EXISTS quick_phrases (
+      id SERIAL PRIMARY KEY,
+      label VARCHAR(100) NOT NULL,
+      text TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (label)
+    )
   `);
 }
 

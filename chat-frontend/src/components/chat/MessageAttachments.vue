@@ -43,6 +43,7 @@
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import axios from 'axios'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
+import { getAuthHeaders, withAuthToken } from '@/services/authHeaders'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -86,7 +87,7 @@ function isAudio(item?: Attachment) {
 }
 
 function getDownloadUrl(item: Attachment) {
-  return `${API_URL}/api/storage-chat/download/${item.id}`
+  return withAuthToken(`${API_URL}/api/storage-chat/download/${item.id}`)
 }
 
 function getPlayableUrl(item: Attachment) {
@@ -99,7 +100,8 @@ function getPlayableUrl(item: Attachment) {
 async function load() {
   if (!props.entityId) return
   const { data } = await axios.get(`${API_URL}/api/storage-chat/${props.entityId}`, {
-    params: { entity_type: props.entityType || 'chat' }
+    params: { entity_type: props.entityType || 'chat' },
+    headers: getAuthHeaders()
   })
   items.value = data
 }
@@ -256,7 +258,6 @@ watch(
   max-height: 70vh;
 }
 </style>
-
 
 
 

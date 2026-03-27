@@ -147,10 +147,10 @@ async function handleLogin() {
       password: password.value
     })
     
-    const { user } = response.data
+    const { user, token } = response.data
     
     // Login in store
-    authStore.login(user.id, user.name, user.role)
+    authStore.login(user.id, user.name, user.role, token)
     chatStore.connectSocket()
     
     // Redirect based on role
@@ -180,10 +180,10 @@ async function handleRegister() {
       password: regPassword.value
     })
     
-    const { user } = response.data
+    const { user, token } = response.data
     
     // Auto login after register
-    authStore.login(user.id, user.name, user.role)
+    authStore.login(user.id, user.name, user.role, token)
     chatStore.connectSocket()
     router.push('/client')
     
@@ -330,7 +330,6 @@ async function handleRegister() {
   color: var(--color-primary);
 }
 </style>
-
 
 
 

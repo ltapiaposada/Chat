@@ -7,30 +7,34 @@ interface AuthState {
   userId: number | null
   name: string
   role: UserRole | null
+  token: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const userId = ref<number | null>(null)
   const name = ref<string>('')
   const role = ref<UserRole | null>(null)
+  const token = ref<string>('')
 
-  const isAuthenticated = computed(() => userId.value !== null && role.value !== null)
+  const isAuthenticated = computed(() => userId.value !== null && role.value !== null && !!token.value)
   const isAgent = computed(() => role.value === 'agent')
   const isClient = computed(() => role.value === 'client')
 
-  function login(id: number, userName: string, userRole: UserRole) {
+  function login(id: number, userName: string, userRole: UserRole, authToken: string) {
     userId.value = id
     name.value = userName
     role.value = userRole
+    token.value = authToken
     
     // Persist to localStorage
-    localStorage.setItem('auth', JSON.stringify({ userId: id, name: userName, role: userRole }))
+    localStorage.setItem('auth', JSON.stringify({ userId: id, name: userName, role: userRole, token: authToken }))
   }
 
   function logout() {
     userId.value = null
     name.value = ''
     role.value = null
+    token.value = ''
     localStorage.removeItem('auth')
   }
 
@@ -42,6 +46,11 @@ export const useAuthStore = defineStore('auth', () => {
         userId.value = data.userId
         name.value = data.name
         role.value = data.role
+        token.value = typeof data.token === 'string' ? data.token : ''
+        if (!token.value) {
+          localStorage.removeItem('auth')
+          return false
+        }
         return true
       } catch {
         localStorage.removeItem('auth')
@@ -54,6 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
     userId,
     name,
     role,
+    token,
     isAuthenticated,
     isAgent,
     isClient,

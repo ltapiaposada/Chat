@@ -6,7 +6,12 @@ const { ensureSchema } = require('./infrastructure/database/ensureSchema');
 const socketService = require('./infrastructure/websocket/socket');
 const storageChatRoutes = require('./routes/storageChat');
 const whatsappRoutes = require('./routes/whatsapp');
+const { createAuthToken } = require('./config/auth');
 const { createCorsOriginValidator, getAllowedOrigins } = require('./config/origins');
+const { requireRole } = require('./plugins/auth');
+const { registerHttpErrorHandling } = require('./plugins/httpErrors');
+const { createRateLimit } = require('./plugins/rateLimit');
+const { sanitizeEmail, sanitizeText } = require('./utils/sanitize');
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
@@ -24,6 +29,27 @@ const AI_ACTIONS = {
   add_empathy: "Reescribe el texto agregando empatia y comprension hacia el cliente.",
   professional: "Reescribe el texto como un mensaje profesional de soporte al cliente."
 };
+
+const loginRateLimit = createRateLimit({
+  windowMs: 60_000,
+  max: 5,
+  key: (request) => `${request.ip}:${String(request.body?.email || '').trim().toLowerCase() || 'unknown'}`,
+  errorMessage: 'Too many login attempts'
+});
+
+const registerRateLimit = createRateLimit({
+  windowMs: 60_000,
+  max: 3,
+  key: (request) => `${request.ip}:${String(request.body?.email || '').trim().toLowerCase() || 'unknown'}`,
+  errorMessage: 'Too many registration attempts'
+});
+
+const aiAssistRateLimit = createRateLimit({
+  windowMs: 60_000,
+  max: 30,
+  key: (request) => `${request.ip}:${request.auth?.userId || 'anonymous'}`,
+  errorMessage: 'Too many AI requests'
+});
 // Import routes
 // const routes = require('./presentation/routes');
 
@@ -35,6 +61,7 @@ fastify.register(require('@fastify/cors'), {
   origin: createCorsOriginValidator(),
   credentials: true
 });
+registerHttpErrorHandling(fastify);
 
 // Register storage routes (isolated)
 fastify.register(storageChatRoutes);
@@ -47,8 +74,22 @@ fastify.get('/', async (request, reply) => {
 });
 
 // Login endpoint
-fastify.post('/api/login', async (request, reply) => {
-  const { email, password } = request.body;
+fastify.post('/api/login', {
+  preHandler: loginRateLimit,
+  schema: {
+    body: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['email', 'password'],
+      properties: {
+        email: { type: 'string', format: 'email', maxLength: 255 },
+        password: { type: 'string', minLength: 1, maxLength: 200 }
+      }
+    }
+  }
+}, async (request, reply) => {
+  const email = sanitizeEmail(request.body?.email);
+  const password = sanitizeText(request.body?.password);
   
   try {
     if (!email || !password) {
@@ -83,6 +124,7 @@ fastify.post('/api/login', async (request, reply) => {
     
     return {
       success: true,
+      token: createAuthToken(user),
       user: {
         id: user.id,
         name: user.name,
@@ -97,8 +139,24 @@ fastify.post('/api/login', async (request, reply) => {
 });
 
 // Register client endpoint
-fastify.post('/api/register-client', async (request, reply) => {
-  const { name, email, password } = request.body;
+fastify.post('/api/register-client', {
+  preHandler: registerRateLimit,
+  schema: {
+    body: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['name', 'email', 'password'],
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: 120 },
+        email: { type: 'string', format: 'email', maxLength: 255 },
+        password: { type: 'string', minLength: 4, maxLength: 200 }
+      }
+    }
+  }
+}, async (request, reply) => {
+  const name = sanitizeText(request.body?.name);
+  const email = sanitizeEmail(request.body?.email);
+  const password = sanitizeText(request.body?.password);
   
   try {
     if (!name || !email || !password || password.length < 4) {
@@ -123,6 +181,7 @@ fastify.post('/api/register-client', async (request, reply) => {
     
     return {
       success: true,
+      token: createAuthToken(user),
       user: {
         id: user.id,
         name: user.name,
@@ -136,10 +195,23 @@ fastify.post('/api/register-client', async (request, reply) => {
   }
 });
 // AI assist endpoint (Gemini)
-fastify.post('/api/ai/assist', async (request, reply) => {
+fastify.post('/api/ai/assist', {
+  preHandler: [requireRole('agent'), aiAssistRateLimit],
+  schema: {
+    body: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['text', 'action'],
+      properties: {
+        text: { type: 'string', minLength: 1, maxLength: 8000 },
+        action: { type: 'string', enum: Object.keys(AI_ACTIONS) }
+      }
+    }
+  }
+}, async (request, reply) => {
   try {
-    const { text, action } = request.body || {};
-    const input = typeof text === 'string' ? text.trim() : '';
+    const input = sanitizeText(request.body?.text);
+    const action = sanitizeText(request.body?.action);
     const instruction = AI_ACTIONS[action];
 
     if (!input) {
@@ -191,6 +263,7 @@ const start = async () => {
   try {
     // Test database connection
     await db.query('SELECT NOW()');
+    createAuthToken({ id: 0, role: 'agent', name: 'auth-check', email: null });
     console.log('âœ… Database connection successful');
     await ensureSchema(db);
     console.log('âœ… Database schema ensured');
@@ -226,6 +299,3 @@ process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 
 start();
-
-
-

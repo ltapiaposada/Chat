@@ -34,6 +34,20 @@ VITE_API_URL=http://localhost:3000
 VITE_SOCKET_URL=http://localhost:3000
 ```
 
+Para grabar audio:
+- En la misma máquina, `http://localhost` funciona.
+- Desde otra máquina en la red, el navegador normalmente exige `HTTPS` para dar acceso al micrófono.
+- Si vas a probar el frontend desde otra computadora, inicia Vite con HTTPS usando estas variables de entorno:
+
+```env
+VITE_DEV_HTTPS=true
+# Opcional: usa tu propio certificado
+VITE_DEV_SSL_KEY=/ruta/al/localhost-key.pem
+VITE_DEV_SSL_CERT=/ruta/al/localhost.pem
+```
+
+Si defines solo `VITE_DEV_HTTPS=true`, Vite intentará levantar HTTPS por defecto. Si además defines `VITE_DEV_SSL_KEY` y `VITE_DEV_SSL_CERT`, usará ese certificado.
+
 ## Despliegue en Vercel
 
 Este frontend se puede desplegar en Vercel usando `chat-frontend` como Root Directory.

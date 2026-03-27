@@ -42,8 +42,8 @@ class SocketService {
     }
   }
 
-  authenticate(userId: number) {
-    this.socket?.emit('authenticate', userId)
+  authenticate(token: string) {
+    this.socket?.emit('authenticate', { token })
   }
 
   joinRoom(roomId: number) {
@@ -88,5 +88,4 @@ class SocketService {
 }
 
 export default new SocketService()
-
 

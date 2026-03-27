@@ -70,13 +70,24 @@ const router = createRouter({
 // Navigation guard
 router.beforeEach((to, from, next) => {
   const authData = localStorage.getItem('auth')
-  const isAuthenticated = !!authData
+  let auth: { role?: string; token?: string } | null = null
+
+  if (authData) {
+    try {
+      auth = JSON.parse(authData)
+    } catch {
+      localStorage.removeItem('auth')
+    }
+  }
+  const isAuthenticated = !!auth?.token
   
   if (to.meta.requiresAuth && !isAuthenticated) {
     next('/')
+  } else if (to.meta.requiresAuth && (!auth?.token || (to.meta.role && auth.role !== to.meta.role))) {
+    localStorage.removeItem('auth')
+    next('/')
   } else if (to.path === '/' && isAuthenticated) {
-    const auth = JSON.parse(authData!)
-    if (auth.role === 'agent') {
+    if (auth?.role === 'agent') {
       next('/agent/pending')
     } else {
       next('/client')

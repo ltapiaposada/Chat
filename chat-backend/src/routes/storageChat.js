@@ -10,6 +10,13 @@ const chatRepository = require('../infrastructure/repositories/ChatRepository');
 const userRepository = require('../infrastructure/repositories/UserRepository');
 const whatsappService = require('../services/whatsappService');
 const socketService = require('../infrastructure/websocket/socket');
+const {
+  authenticateRequest,
+  authorizeChatMessageAccess,
+  requireRole
+} = require('../plugins/auth');
+const { createRateLimit } = require('../plugins/rateLimit');
+const { sanitizeText } = require('../utils/sanitize');
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 
@@ -43,6 +50,13 @@ const WHATSAPP_AUDIO_MIME = new Set([
   'audio/aac',
   'audio/wav'
 ]);
+
+const uploadRateLimit = createRateLimit({
+  windowMs: 60_000,
+  max: 20,
+  key: (request) => `${request.ip}:${request.auth?.userId || 'anonymous'}`,
+  errorMessage: 'Too many upload requests'
+});
 
 function isImage(mimeType) {
   return mimeType && mimeType.startsWith('image/');
@@ -274,7 +288,12 @@ module.exports = async function storageChatRoutes(fastify) {
      ON storage_chat(entity_type, entity_id)`
   );
 
-  fastify.post('/api/storage-chat/upload', async (request, reply) => {
+  fastify.post('/api/storage-chat/upload', {
+    preHandler: async (request, reply) => {
+      if (!(await authenticateRequest(request, reply)) || reply.sent) return;
+      return uploadRateLimit(request, reply);
+    }
+  }, async (request, reply) => {
     try {
       if (!process.env.CLOUDINARY_URL) {
         return reply.status(500).send({ error: 'Storage no configurado' });
@@ -287,7 +306,8 @@ module.exports = async function storageChatRoutes(fastify) {
 
       const entityId = data.fields?.entity_id?.value || data.fields?.entity_id;
       const entityType = data.fields?.entity_type?.value || data.fields?.entity_type || 'chat';
-      if (!entityId) {
+      const normalizedEntityId = Number(entityId);
+      if (!entityId || !Number.isInteger(normalizedEntityId) || normalizedEntityId <= 0) {
         return reply.status(400).send({ error: 'entity_id requerido' });
       }
 
@@ -308,13 +328,15 @@ module.exports = async function storageChatRoutes(fastify) {
       let chat = null;
 
       if (entityType === 'chat') {
-        message = await messageRepository.findById(Number(entityId));
-        if (message) {
-          chat = await chatRepository.findById(message.chatId);
-          if (chat && chat.channel === 'whatsapp' && message.senderRole === 'agent') {
-            isWhatsAppAgentAttachment = true;
-          }
+        const access = await authorizeChatMessageAccess(request, reply, entityId);
+        if (!access || reply.sent) return;
+        message = access.message;
+        chat = access.chat;
+        if (chat.channel === 'whatsapp' && message.senderRole === 'agent') {
+          isWhatsAppAgentAttachment = true;
         }
+      } else {
+        return reply.status(403).send({ error: 'Unsupported entity type' });
       }
 
       const isWhatsAppAudio =
@@ -389,7 +411,7 @@ module.exports = async function storageChatRoutes(fastify) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id, entity_id, url, public_id, resource_type, mime_type, bytes, filename, is_attachment, created_at`,
         [
-          entityId,
+          normalizedEntityId,
           entityType,
           storedUrl,
           uploadResult.public_id,
@@ -549,10 +571,35 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   });
 
-  fastify.get('/api/storage-chat/:entity_id', async (request, reply) => {
+  fastify.get('/api/storage-chat/:entity_id', {
+    schema: {
+      params: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['entity_id'],
+        properties: {
+          entity_id: { type: 'integer', minimum: 1 }
+        }
+      },
+      querystring: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          entity_type: { type: 'string', enum: ['chat'] }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { entity_id: entityId } = request.params;
       const entityType = request.query?.entity_type || 'chat';
+      if (entityType !== 'chat') {
+        return reply.status(403).send({ error: 'Unsupported entity type' });
+      }
+
+      const access = await authorizeChatMessageAccess(request, reply, entityId);
+      if (!access || reply.sent) return;
+
       const result = await db.query(
         `SELECT id, entity_id, url, public_id, resource_type, mime_type, bytes, filename, is_attachment, created_at
          FROM storage_chat
@@ -567,11 +614,22 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   });
 
-  fastify.get('/api/storage-chat/download/:id', async (request, reply) => {
+  fastify.get('/api/storage-chat/download/:id', {
+    schema: {
+      params: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id'],
+        properties: {
+          id: { type: 'integer', minimum: 1 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const result = await db.query(
-        `SELECT id, url, mime_type, filename, public_id, resource_type 
+        `SELECT id, entity_id, entity_type, url, mime_type, filename, public_id, resource_type 
          FROM storage_chat 
          WHERE id = $1`,
         [id]
@@ -582,6 +640,13 @@ module.exports = async function storageChatRoutes(fastify) {
       }
 
       const file = result.rows[0];
+      if (file.entity_type !== 'chat') {
+        return reply.status(403).send({ error: 'Unsupported entity type' });
+      }
+
+      const access = await authorizeChatMessageAccess(request, reply, file.entity_id);
+      if (!access || reply.sent) return;
+
       let buffer = null;
       try {
         buffer = await fetchBuffer(file.url);
@@ -614,11 +679,22 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   });
 
-  fastify.delete('/api/storage-chat/:id', async (request, reply) => {
+  fastify.delete('/api/storage-chat/:id', {
+    schema: {
+      params: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id'],
+        properties: {
+          id: { type: 'integer', minimum: 1 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const existing = await db.query(
-        `SELECT id, public_id, resource_type 
+        `SELECT id, entity_id, entity_type, public_id, resource_type 
          FROM storage_chat 
          WHERE id = $1`,
         [id]
@@ -628,7 +704,15 @@ module.exports = async function storageChatRoutes(fastify) {
         return reply.status(404).send({ error: 'Adjunto no encontrado' });
       }
 
-      const { public_id: publicId, resource_type: resourceType } = existing.rows[0];
+      const row = existing.rows[0];
+      if (row.entity_type !== 'chat') {
+        return reply.status(403).send({ error: 'Unsupported entity type' });
+      }
+
+      const access = await authorizeChatMessageAccess(request, reply, row.entity_id);
+      if (!access || reply.sent) return;
+
+      const { public_id: publicId, resource_type: resourceType } = row;
 
       await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
 
@@ -642,7 +726,9 @@ module.exports = async function storageChatRoutes(fastify) {
   });
 
   // Quick phrases (per user)
-  fastify.get('/api/quick-phrases', async (request, reply) => {
+  fastify.get('/api/quick-phrases', {
+    preHandler: requireRole('agent')
+  }, async (request, reply) => {
     try {
       const result = await db.query(
         `SELECT id, label, text
@@ -657,11 +743,23 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   })
 
-  fastify.post('/api/quick-phrases', async (request, reply) => {
+  fastify.post('/api/quick-phrases', {
+    preHandler: requireRole('agent'),
+    schema: {
+      body: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['label', 'text'],
+        properties: {
+          label: { type: 'string', minLength: 1, maxLength: 100 },
+          text: { type: 'string', minLength: 1, maxLength: 2000 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
-      const { label, text } = request.body || {}
-      const normalizedLabel = typeof label === 'string' ? label.trim() : ''
-      const phraseText = typeof text === 'string' ? text.trim() : ''
+      const normalizedLabel = sanitizeText(request.body?.label)
+      const phraseText = sanitizeText(request.body?.text)
       if (!normalizedLabel || !phraseText) {
         return reply.status(400).send({ error: 'label y text requeridos' })
       }

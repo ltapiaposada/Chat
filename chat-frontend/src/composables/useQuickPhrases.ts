@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import axios from 'axios'
+import { getAuthHeaders } from '@/services/authHeaders'
 
 export type QuickPhrase = {
   label: string
@@ -63,7 +64,9 @@ async function loadFromServer() {
   if (loadInFlight) return loadInFlight
   loadInFlight = (async () => {
     try {
-      const { data } = await axios.get(`${API_URL}/api/quick-phrases`)
+      const { data } = await axios.get(`${API_URL}/api/quick-phrases`, {
+        headers: getAuthHeaders()
+      })
       if (Array.isArray(data)) {
         phrases.value = data
           .filter((p) => p && typeof p.label === 'string' && typeof p.text === 'string')
@@ -82,10 +85,16 @@ async function loadFromServer() {
 
 async function savePhraseToServer(label: string, text: string) {
   try {
-    await axios.post(`${API_URL}/api/quick-phrases`, {
-      label,
-      text
-    })
+    await axios.post(
+      `${API_URL}/api/quick-phrases`,
+      {
+        label,
+        text
+      },
+      {
+        headers: getAuthHeaders()
+      }
+    )
   } catch {
     // ignore server errors; localStorage already updated
   }

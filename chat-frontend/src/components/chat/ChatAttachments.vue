@@ -98,6 +98,7 @@
 import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
+import { getAuthHeaders } from '@/services/authHeaders'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -191,9 +192,61 @@ function pickAudioMimeType() {
   return ''
 }
 
+function getMicrophoneSupportError() {
+  if (typeof window === 'undefined') {
+    return 'La grabación de audio no está disponible en este entorno'
+  }
+
+  if (!window.isSecureContext) {
+    return 'Para usar el micrófono en otros equipos abre el frontend por HTTPS. En la misma máquina también funciona con localhost.'
+  }
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return 'Este navegador no permite acceder al micrófono'
+  }
+
+  if (typeof MediaRecorder === 'undefined') {
+    return 'Este navegador no soporta la grabación de audio'
+  }
+
+  return null
+}
+
+function getMicrophoneErrorMessage(error: unknown) {
+  const fallback = 'No se pudo acceder al micrófono'
+  if (!(error instanceof DOMException)) {
+    return fallback
+  }
+
+  switch (error.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'El permiso del micrófono fue bloqueado. Revisa los permisos del navegador y del sistema.'
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'No se encontró ningún micrófono disponible en este equipo'
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'El micrófono está ocupado o el sistema no permite usarlo en este momento'
+    case 'OverconstrainedError':
+    case 'ConstraintNotSatisfiedError':
+      return 'La configuración solicitada no es compatible con este micrófono'
+    case 'AbortError':
+      return 'La captura de audio se interrumpió antes de comenzar'
+    default:
+      return fallback
+  }
+}
+
 async function startRecording() {
   recordError.value = null
   if (isRecording.value) return
+  const supportError = getMicrophoneSupportError()
+  if (supportError) {
+    recordError.value = supportError
+    stopRecording(true)
+    return
+  }
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
     const mimeType = pickAudioMimeType()
@@ -228,7 +281,7 @@ async function startRecording() {
       }
     }, 1000)
   } catch (err) {
-    recordError.value = 'No se pudo acceder al micrÃ³fono'
+    recordError.value = getMicrophoneErrorMessage(err)
     stopRecording(true)
   }
 }
@@ -268,7 +321,8 @@ async function loadAttachments() {
     return
   }
   const { data } = await axios.get(`${API_URL}/api/storage-chat/${props.entityId}`, {
-    params: { entity_type: getEntityType() }
+    params: { entity_type: getEntityType() },
+    headers: getAuthHeaders()
   })
   attachments.value = data
 }
@@ -324,7 +378,10 @@ async function uploadFiles(files: File[], options: { force?: boolean } = {}) {
     let success = false
     try {
       const { data } = await axios.post(`${API_URL}/api/storage-chat/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'multipart/form-data'
+        },
         onUploadProgress: (evt) => {
           if (!evt.total) return
           const percent = Math.round((evt.loaded / evt.total) * 100)
@@ -370,7 +427,9 @@ async function onFileChange(event: Event) {
 }
 
 async function removeAttachment(id: number) {
-  await axios.delete(`${API_URL}/api/storage-chat/${id}`)
+  await axios.delete(`${API_URL}/api/storage-chat/${id}`, {
+    headers: getAuthHeaders()
+  })
   attachments.value = attachments.value.filter(item => item.id !== id)
   emitUpdated()
 }
@@ -695,9 +754,6 @@ onBeforeUnmount(() => {
   max-height: 70vh;
 }
 </style>
-
-
-
 
 
 

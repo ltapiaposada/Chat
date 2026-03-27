@@ -4,11 +4,26 @@ const chatRepository = require('../infrastructure/repositories/ChatRepository');
 const messageRepository = require('../infrastructure/repositories/MessageRepository');
 const socketService = require('../infrastructure/websocket/socket');
 const whatsappService = require('../services/whatsappService');
+const { createRateLimit } = require('../plugins/rateLimit');
 
-const DEFAULT_VERIFY_TOKEN = 'whatsapp_verify_2026';
+const webhookVerificationRateLimit = createRateLimit({
+  windowMs: 60_000,
+  max: 60,
+  errorMessage: 'Too many webhook verification requests'
+});
+
+const webhookReceiveRateLimit = createRateLimit({
+  windowMs: 60_000,
+  max: 180,
+  errorMessage: 'Too many webhook requests'
+});
 
 function getVerifyToken() {
-  return process.env.WHATSAPP_VERIFY_TOKEN || DEFAULT_VERIFY_TOKEN;
+  const token = process.env.WHATSAPP_VERIFY_TOKEN;
+  if (!token && process.env.NODE_ENV === 'production') {
+    throw new Error('WHATSAPP_VERIFY_TOKEN is required in production');
+  }
+  return token || 'whatsapp_verify_dev_only';
 }
 
 function extractTextMessage(message) {
@@ -61,7 +76,21 @@ module.exports = async function whatsappRoutes(fastify) {
   });
 
   // Webhook verification (GET)
-  fastify.get('/api/whatsapp/webhook', async (request, reply) => {
+  fastify.get('/api/whatsapp/webhook', {
+    preHandler: webhookVerificationRateLimit,
+    schema: {
+      querystring: {
+        type: 'object',
+        additionalProperties: true,
+        required: ['hub.mode', 'hub.verify_token', 'hub.challenge'],
+        properties: {
+          'hub.mode': { type: 'string', minLength: 1, maxLength: 50 },
+          'hub.verify_token': { type: 'string', minLength: 1, maxLength: 255 },
+          'hub.challenge': { type: 'string', minLength: 1, maxLength: 500 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     const mode = request.query['hub.mode'];
     const token = request.query['hub.verify_token'];
     const challenge = request.query['hub.challenge'];
@@ -75,7 +104,19 @@ module.exports = async function whatsappRoutes(fastify) {
   });
 
   // Webhook receiver (POST)
-  fastify.post('/api/whatsapp/webhook', async (request, reply) => {
+  fastify.post('/api/whatsapp/webhook', {
+    preHandler: webhookReceiveRateLimit,
+    schema: {
+      body: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          object: { type: 'string', maxLength: 100 },
+          entry: { type: 'array' }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const body = request.body || {};
       const entries = body.entry || [];
