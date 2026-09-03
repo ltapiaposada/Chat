@@ -15,6 +15,8 @@ const { sanitizeEmail, sanitizeText } = require('./utils/sanitize');
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 15000);
+const DB_STARTUP_RETRIES = Math.max(1, Number(process.env.DB_STARTUP_RETRIES || 5));
+const DB_STARTUP_RETRY_MS = Math.max(0, Number(process.env.DB_STARTUP_RETRY_MS || 1000));
 
 const AI_ACTIONS = {
   friendlier: "Reescribe el texto para que suene mas amable y cordial, sin cambiar el significado.",
@@ -264,19 +266,38 @@ fastify.post('/api/ai/assist', {
   }
 });
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForDatabase() {
+  for (let attempt = 1; attempt <= DB_STARTUP_RETRIES; attempt += 1) {
+    try {
+      await db.query('SELECT NOW()');
+      return;
+    } catch (error) {
+      if (attempt === DB_STARTUP_RETRIES) throw error;
+      fastify.log.warn(
+        { err: error, attempt, retries: DB_STARTUP_RETRIES },
+        'Database connection failed during startup; retrying'
+      );
+      await wait(DB_STARTUP_RETRY_MS);
+    }
+  }
+}
+
 const start = async () => {
   try {
-    // Test database connection
-    await db.query('SELECT NOW()');
+    await waitForDatabase();
     createAuthToken({ id: 0, role: 'agent', name: 'auth-check', email: null });
-    console.log('âœ… Database connection successful');
+    console.log('Database connection successful');
     await ensureSchema(db);
-    console.log('âœ… Database schema ensured');
+    console.log('Database schema ensured');
 
     const port = process.env.PORT || 3000;
     await fastify.listen({ port, host: '0.0.0.0' });
-    console.log(`ðŸš€ Server listening on port ${port}`);
-    console.log(`ðŸŒ Allowed origins: ${getAllowedOrigins().join(', ')}`);
+    console.log(`Server listening on port ${port}`);
+    console.log(`Allowed origins: ${getAllowedOrigins().join(', ')}`);
 
     // Initialize Socket.IO
     socketService.initialize(fastify.server);
@@ -288,14 +309,14 @@ const start = async () => {
 
 // Graceful shutdown
 const gracefulShutdown = async () => {
-  console.log('\nâ³ Shutting down gracefully...');
+  console.log('\nShutting down gracefully...');
   try {
     await db.close();
     await fastify.close();
-    console.log('âœ… Shutdown complete');
+    console.log('Shutdown complete');
     process.exit(0);
   } catch (err) {
-    console.error('âŒ Error during shutdown:', err);
+    console.error('Error during shutdown:', err);
     process.exit(1);
   }
 };

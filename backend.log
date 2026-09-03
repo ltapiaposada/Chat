@@ -1,0 +1,158 @@
+
+> chat-backend@1.0.0 dev
+> node --watch src/server.js
+
+Connected to PostgreSQL database
+Database connection successful
+Database schema ensured
+{"level":30,"time":1782607433669,"pid":2164,"hostname":"DESKTOP-U40HBDB","msg":"Server listening at http://127.0.0.1:3000"}
+Server listening on port 3000
+Allowed origins: http://localhost:5173
+{"level":30,"time":1782607433683,"pid":2164,"hostname":"DESKTOP-U40HBDB","msg":"Server listening at http://26.39.127.8:3000"}
+{"level":30,"time":1782607433683,"pid":2164,"hostname":"DESKTOP-U40HBDB","msg":"Server listening at http://192.168.101.31:3000"}
+Global messages table ready
+Socket.IO initialized
+{"level":30,"time":1782607448435,"pid":2164,"hostname":"DESKTOP-U40HBDB","reqId":"req-1","req":{"method":"GET","url":"/","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":64990},"msg":"incoming request"}
+{"level":30,"time":1782607448441,"pid":2164,"hostname":"DESKTOP-U40HBDB","reqId":"req-1","res":{"statusCode":200},"responseTime":5.117599999997765,"msg":"request completed"}
+New client connected: iI7XUfrVf_CdN__aAAAB
+{"level":30,"time":1782607663324,"pid":2164,"hostname":"DESKTOP-U40HBDB","reqId":"req-2","req":{"method":"OPTIONS","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":62931},"msg":"incoming request"}
+{"level":30,"time":1782607663326,"pid":2164,"hostname":"DESKTOP-U40HBDB","reqId":"req-2","res":{"statusCode":204},"responseTime":1.292600000044331,"msg":"request completed"}
+{"level":30,"time":1782607663327,"pid":2164,"hostname":"DESKTOP-U40HBDB","reqId":"req-3","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":62931},"msg":"incoming request"}
+Connected to PostgreSQL database
+{"level":30,"time":1782607664160,"pid":2164,"hostname":"DESKTOP-U40HBDB","reqId":"req-3","res":{"statusCode":200},"responseTime":833.0456999999005,"msg":"request completed"}
+New client connected: 63qLleBjZhscYYL2AAAD
+CLIENT luis tapia (5) authenticated
+Sending 9 chats history to client 5
+Restarting 'src/server.js'
+Connected to PostgreSQL database
+Database connection successful
+Database schema ensured
+{"level":30,"time":1782607854670,"pid":19336,"hostname":"DESKTOP-U40HBDB","msg":"Server listening at http://127.0.0.1:3000"}
+Server listening on port 3000
+Allowed origins: http://localhost:5173
+{"level":30,"time":1782607854671,"pid":19336,"hostname":"DESKTOP-U40HBDB","msg":"Server listening at http://26.39.127.8:3000"}
+{"level":30,"time":1782607854671,"pid":19336,"hostname":"DESKTOP-U40HBDB","msg":"Server listening at http://192.168.101.31:3000"}
+Global messages table ready
+Socket.IO initialized
+New client connected: 79nNeRqPzWoa9s42AAAB
+CLIENT luis tapia (5) authenticated
+Sending 9 chats history to client 5
+New client connected: g-ZLJAfv9i-O5GbgAAAD
+Client luis tapia (5) starting chat: Hola
+Chat 38 created and notified to agents
+{"level":30,"time":1782607906784,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-1","req":{"method":"OPTIONS","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50576},"msg":"incoming request"}
+{"level":30,"time":1782607906787,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-1","res":{"statusCode":204},"responseTime":2.575199999846518,"msg":"request completed"}
+{"level":30,"time":1782607906802,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-2","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50576},"msg":"incoming request"}
+{"level":30,"time":1782607906885,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-2","res":{"statusCode":401},"responseTime":82.71329999994487,"msg":"request completed"}
+{"level":30,"time":1782607915354,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-3","req":{"method":"OPTIONS","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50576},"msg":"incoming request"}
+{"level":30,"time":1782607915360,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-3","res":{"statusCode":204},"responseTime":5.643500000238419,"msg":"request completed"}
+{"level":30,"time":1782607915361,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-4","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50576},"msg":"incoming request"}
+{"level":30,"time":1782607915436,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-4","res":{"statusCode":401},"responseTime":74.10110000008717,"msg":"request completed"}
+{"level":30,"time":1782607944387,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-5","req":{"method":"OPTIONS","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50576},"msg":"incoming request"}
+{"level":30,"time":1782607944403,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-5","res":{"statusCode":204},"responseTime":1.376399999950081,"msg":"request completed"}
+{"level":30,"time":1782607944404,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-6","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50576},"msg":"incoming request"}
+{"level":30,"time":1782607944492,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-6","res":{"statusCode":401},"responseTime":88.82409999985248,"msg":"request completed"}
+{"level":30,"time":1782608018289,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-7","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":60122},"msg":"incoming request"}
+{"level":30,"time":1782608018291,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-8","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":60123},"msg":"incoming request"}
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+{"level":30,"time":1782608018434,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-7","res":{"statusCode":401},"responseTime":144.65959999989718,"msg":"request completed"}
+{"level":30,"time":1782608018498,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-8","res":{"statusCode":200},"responseTime":207.1885000001639,"msg":"request completed"}
+{"level":30,"time":1782608049641,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-9","req":{"method":"OPTIONS","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+{"level":30,"time":1782608049642,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-9","res":{"statusCode":204},"responseTime":0.9812999996356666,"msg":"request completed"}
+{"level":30,"time":1782608049644,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-a","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+Connected to PostgreSQL database
+{"level":30,"time":1782608049760,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-a","res":{"statusCode":401},"responseTime":115.76500000013039,"msg":"request completed"}
+{"level":30,"time":1782608055791,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-b","req":{"method":"OPTIONS","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+{"level":30,"time":1782608055792,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-b","res":{"statusCode":204},"responseTime":0.8725999998860061,"msg":"request completed"}
+{"level":30,"time":1782608055794,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-c","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+{"level":30,"time":1782608055860,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-c","res":{"statusCode":401},"responseTime":66.19709999999031,"msg":"request completed"}
+{"level":30,"time":1782608067875,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-d","req":{"method":"OPTIONS","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+{"level":30,"time":1782608067876,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-d","res":{"statusCode":204},"responseTime":0.7360000000335276,"msg":"request completed"}
+{"level":30,"time":1782608067880,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-e","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+{"level":30,"time":1782608067947,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-e","res":{"statusCode":401},"responseTime":66.98059999989346,"msg":"request completed"}
+{"level":30,"time":1782608073045,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-f","req":{"method":"OPTIONS","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+{"level":30,"time":1782608073047,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-f","res":{"statusCode":204},"responseTime":1.6462999996729195,"msg":"request completed"}
+{"level":30,"time":1782608073051,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-g","req":{"method":"POST","url":"/api/login","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+{"level":30,"time":1782608073118,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-g","res":{"statusCode":200},"responseTime":67.10399999981746,"msg":"request completed"}
+New client connected: PhCUgGimve9CGkqIAAAF
+Broadcasting 1 online users to global chat
+AGENT Agent 1 (1) authenticated
+Connected to PostgreSQL database
+Sending 1 pending chats to agent
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Sending 2 assigned chats to agent 1
+Sending 1 pending chats to agent
+Sending 1 pending chats to agent
+Sending 1 pending chats to agent
+Sending 1 pending chats to agent
+Agent Agent 1 (1) assigned to chat 38
+Connected to PostgreSQL database
+{"level":30,"time":1782608122786,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-h","req":{"method":"OPTIONS","url":"/api/quick-phrases","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+{"level":30,"time":1782608122787,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-h","res":{"statusCode":204},"responseTime":0.7724999999627471,"msg":"request completed"}
+{"level":30,"time":1782608122790,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-i","req":{"method":"GET","url":"/api/quick-phrases","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":53053},"msg":"incoming request"}
+{"level":30,"time":1782608122821,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-i","res":{"statusCode":200},"responseTime":30.454400000162423,"msg":"request completed"}
+Connected to PostgreSQL database
+Sending 0 pending chats to agent
+Returning 3 agents (excludeId: null)
+{"level":30,"time":1782608237706,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-j","req":{"method":"OPTIONS","url":"/api/quick-phrases","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50112},"msg":"incoming request"}
+{"level":30,"time":1782608237707,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-j","res":{"statusCode":204},"responseTime":0.5038999998942018,"msg":"request completed"}
+{"level":30,"time":1782608237710,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-k","req":{"method":"GET","url":"/api/quick-phrases","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50112},"msg":"incoming request"}
+{"level":30,"time":1782608237715,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-k","res":{"statusCode":200},"responseTime":4.966400000266731,"msg":"request completed"}
+{"level":30,"time":1782608240740,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-l","req":{"method":"GET","url":"/api/quick-phrases","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50112},"msg":"incoming request"}
+Connected to PostgreSQL database
+Connected to PostgreSQL database
+Returning 3 agents (excludeId: null)
+{"level":30,"time":1782608240842,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-l","res":{"statusCode":200},"responseTime":101.92499999981374,"msg":"request completed"}
+{"level":30,"time":1782608243850,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-m","req":{"method":"OPTIONS","url":"/api/storage-chat/1?entity_type=group","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50112},"msg":"incoming request"}
+{"level":30,"time":1782608243850,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-m","res":{"statusCode":204},"responseTime":0.704900000244379,"msg":"request completed"}
+{"level":30,"time":1782608243851,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-n","req":{"method":"OPTIONS","url":"/api/storage-chat/2?entity_type=group","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":55034},"msg":"incoming request"}
+{"level":30,"time":1782608243852,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-n","res":{"statusCode":204},"responseTime":0.5679000001400709,"msg":"request completed"}
+{"level":30,"time":1782608243853,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-o","req":{"method":"OPTIONS","url":"/api/storage-chat/3?entity_type=group","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50112},"msg":"incoming request"}
+{"level":30,"time":1782608243854,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-o","res":{"statusCode":204},"responseTime":0.5975999999791384,"msg":"request completed"}
+{"level":30,"time":1782608243855,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-p","req":{"method":"OPTIONS","url":"/api/storage-chat/4?entity_type=group","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":55034},"msg":"incoming request"}
+{"level":30,"time":1782608243856,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-p","res":{"statusCode":204},"responseTime":0.7733999998308718,"msg":"request completed"}
+{"level":30,"time":1782608243857,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-q","req":{"method":"GET","url":"/api/storage-chat/1?entity_type=group","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50112},"msg":"incoming request"}
+{"level":30,"time":1782608243858,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-q","res":{"statusCode":403},"responseTime":1.3393999999389052,"msg":"request completed"}
+{"level":30,"time":1782608243858,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-r","req":{"method":"GET","url":"/api/storage-chat/2?entity_type=group","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":55034},"msg":"incoming request"}
+{"level":30,"time":1782608243859,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-r","res":{"statusCode":403},"responseTime":0.5507999998517334,"msg":"request completed"}
+{"level":30,"time":1782608243863,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-s","req":{"method":"GET","url":"/api/storage-chat/3?entity_type=group","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":50112},"msg":"incoming request"}
+{"level":30,"time":1782608243864,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-s","res":{"statusCode":403},"responseTime":1.1822000001557171,"msg":"request completed"}
+{"level":30,"time":1782608243864,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-t","req":{"method":"GET","url":"/api/storage-chat/4?entity_type=group","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":55034},"msg":"incoming request"}
+{"level":30,"time":1782608243865,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-t","res":{"statusCode":403},"responseTime":1.0137000000104308,"msg":"request completed"}
+{"level":30,"time":1782608281805,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-u","req":{"method":"OPTIONS","url":"/api/quick-phrases","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":55034},"msg":"incoming request"}
+{"level":30,"time":1782608281806,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-u","res":{"statusCode":204},"responseTime":0.8325000000186265,"msg":"request completed"}
+{"level":30,"time":1782608281809,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-v","req":{"method":"GET","url":"/api/quick-phrases","host":"localhost:3000","remoteAddress":"127.0.0.1","remotePort":55034},"msg":"incoming request"}
+Connected to PostgreSQL database
+{"level":30,"time":1782608281881,"pid":19336,"hostname":"DESKTOP-U40HBDB","reqId":"req-v","res":{"statusCode":200},"responseTime":71.53830000013113,"msg":"request completed"}
+Sending 0 pending chats to agent
+CLIENT luis tapia disconnected
+Sending 0 pending chats to agent
+Sending 0 pending chats to agent
+Sending 0 pending chats to agent
+Sending 0 pending chats to agent
+Sending 0 pending chats to agent
+Sending 0 pending chats to agent
+Sending 0 pending chats to agent
+Connected to PostgreSQL database
+Sending 0 pending chats to agent
+Connected to PostgreSQL database
+Sending 0 pending chats to agent
+Connected to PostgreSQL database
+Sending 0 pending chats to agent
+Connected to PostgreSQL database
+Sending 0 pending chats to agent
+Connected to PostgreSQL database
+Sending 0 pending chats to agent
+Connected to PostgreSQL database
+Sending 0 pending chats to agent
+Connected to PostgreSQL database
+Sending 0 pending chats to agent
+Connected to PostgreSQL database
+Broadcasting 1 online users to global chat
+AGENT Agent 1 disconnected
+New client connected: 6YPFNqXuO19beYtgAAAH
+CLIENT luis tapia (5) authenticated
+Sending 10 chats history to client 5
+CLIENT luis tapia disconnected
