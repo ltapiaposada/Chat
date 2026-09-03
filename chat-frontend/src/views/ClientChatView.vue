@@ -195,10 +195,6 @@
             </div>
           </div>
 
-          <div v-if="chatStore.typingUsers.size > 0" class="typing-indicator">
-            <span class="typing-dots"></span>
-            El agente está escribiendo...
-          </div>
         </div>
 
         <!-- Reply indicator -->
@@ -220,6 +216,11 @@
             :show-existing="false"
             @queueChanged="queuedCount = $event"
           />
+        </div>
+
+        <div v-if="chatStore.typingUsers.size > 0" class="typing-indicator">
+          <span class="typing-dots"></span>
+          El agente está escribiendo...
         </div>
 
         <div class="input-area" v-if="chatStore.clientChat?.status !== 'closed'">
@@ -574,13 +575,16 @@ function getInitials(name?: string): string {
   return (name.substring(0, 2) || 'A').toUpperCase()
 }
 
-// Auto-scroll to bottom
-watch(() => chatStore.currentMessages.length, async () => {
+async function scrollMessagesToBottom() {
   await nextTick()
   if (messagesContainer.value) {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
-})
+}
+
+// Keep the latest message visible when content or the typing bar changes height.
+watch(() => chatStore.currentMessages.length, scrollMessagesToBottom)
+watch(() => chatStore.typingUsers.size, scrollMessagesToBottom)
 
 watch(
   () => chatStore.currentMessages[chatStore.currentMessages.length - 1],
@@ -588,6 +592,7 @@ watch(
     if (!message) return
     if (awaitingAttachmentMessage.value && message.senderRole === 'client') {
       pendingEntityId.value = message.id
+      attachmentsRef.value?.flushQueuedToEntity?.(message.id)
       if (pendingOptimistic.value.length > 0) {
         optimisticByMessageId.value = {
           ...optimisticByMessageId.value,
@@ -838,6 +843,7 @@ function handleDocumentClick(event: MouseEvent) {
 
 .messages-container {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 1rem;
   display: flex;

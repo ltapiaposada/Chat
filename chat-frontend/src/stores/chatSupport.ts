@@ -181,12 +181,14 @@ export function registerSupportListeners(params: {
 
   socket.on('typing:started', (data: { chatId: number; userId: number }) => {
     if (data.chatId === currentChatId.value) {
-      typingUsers.value.add(data.userId)
+      typingUsers.value = new Set([...typingUsers.value, data.userId])
     }
   })
 
   socket.on('typing:stopped', (data: { chatId: number; userId: number }) => {
-    typingUsers.value.delete(data.userId)
+    const nextTypingUsers = new Set(typingUsers.value)
+    nextTypingUsers.delete(data.userId)
+    typingUsers.value = nextTypingUsers
   })
 
   socket.on('chat:unread-updated', (data: { chatId: number; unreadCount: number }) => {
@@ -349,6 +351,7 @@ export function createSupportActions(params: {
 
   function selectChat(chatId: number) {
     currentChatId.value = chatId
+    typingUsers.value = new Set()
     clearUnseen()
     const chat = chats.value.find((item) => item.id === chatId)
     if (chat && chat.unreadCount > 0) {

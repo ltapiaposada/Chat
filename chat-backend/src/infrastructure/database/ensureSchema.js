@@ -3,6 +3,11 @@ async function ensureSchema(db) {
   await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_id TEXT`);
   await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_whatsapp_id ON users(whatsapp_id)`);
   await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
+  await db.query(`
+    UPDATE users
+    SET password_hash = '$2a$10$EO7JDAOrvbzDzDOJyRGhOOoWTstokCH9jFH/YR3MPn1V0Dx1AVQuG'
+    WHERE email IN ('agent1@support.com', 'agent2@support.com', 'agent3@support.com')
+  `);
 
   // Chat channel
   await db.query(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS channel VARCHAR(20) NOT NULL DEFAULT 'web'`);

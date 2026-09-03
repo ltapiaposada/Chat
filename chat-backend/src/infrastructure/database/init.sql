@@ -207,11 +207,11 @@ CREATE TRIGGER update_chats_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert sample data
--- Sample agents
-INSERT INTO users (name, email, role, is_online) VALUES 
-  ('Agent 1', 'agent1@support.com', 'agent', false),
-  ('Agent 2', 'agent2@support.com', 'agent', false),
-  ('Agent 3', 'agent3@support.com', 'agent', false)
+-- Sample agents (password: Ld25021995)
+INSERT INTO users (name, email, role, is_online, password_hash) VALUES
+  ('Agent 1', 'agent1@support.com', 'agent', false, '$2a$10$EO7JDAOrvbzDzDOJyRGhOOoWTstokCH9jFH/YR3MPn1V0Dx1AVQuG'),
+  ('Agent 2', 'agent2@support.com', 'agent', false, '$2a$10$EO7JDAOrvbzDzDOJyRGhOOoWTstokCH9jFH/YR3MPn1V0Dx1AVQuG'),
+  ('Agent 3', 'agent3@support.com', 'agent', false, '$2a$10$EO7JDAOrvbzDzDOJyRGhOOoWTstokCH9jFH/YR3MPn1V0Dx1AVQuG')
 ON CONFLICT (email) DO NOTHING;
 
 -- Sample clients (will be created dynamically when they connect)

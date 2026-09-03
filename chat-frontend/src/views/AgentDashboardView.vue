@@ -159,9 +159,6 @@
               </div>
             </div>
 
-            <div v-if="chatStore.typingUsers.size > 0" class="typing-indicator">
-              El cliente está escribiendo...
-            </div>
           </div>
 
           <!-- Reply indicator -->
@@ -184,6 +181,10 @@
               :audio-profile="chatStore.currentChat?.channel === 'whatsapp' ? 'whatsapp' : 'default'"
               @queueChanged="queuedCount = $event"
             />
+          </div>
+
+          <div v-if="chatStore.typingUsers.size > 0" class="typing-indicator">
+            El cliente está escribiendo...
           </div>
 
           <div class="input-area" ref="inputAreaRef" v-if="chatStore.currentChat?.status !== 'closed'">
@@ -438,6 +439,7 @@ async function applyAi(actionId: string) {
     }
   } catch (error) {
     console.error('Error del asistente IA:', error)
+    window.alert(error instanceof Error ? error.message : 'No se pudo procesar el texto con IA.')
   } finally {
     aiBusy.value = false
   }
@@ -674,13 +676,16 @@ onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleDocumentClick)
 })
 
-// Auto-scroll to bottom
-watch(() => chatStore.currentMessages.length, async () => {
+async function scrollMessagesToBottom() {
   await nextTick()
   if (mensajesContainer.value) {
     mensajesContainer.value.scrollTop = mensajesContainer.value.scrollHeight
   }
-})
+}
+
+// Keep the latest message visible when content or the typing bar changes height.
+watch(() => chatStore.currentMessages.length, scrollMessagesToBottom)
+watch(() => chatStore.typingUsers.size, scrollMessagesToBottom)
 
 watch(
   () => chatStore.currentMessages[chatStore.currentMessages.length - 1],
@@ -1038,6 +1043,7 @@ function handleDocumentClick(event: MouseEvent) {
 
 .mensajes-container {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 1rem;
   background: #fafafa;

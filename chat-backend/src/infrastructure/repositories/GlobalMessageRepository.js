@@ -17,7 +17,7 @@ class GlobalMessageRepository {
         CREATE INDEX IF NOT EXISTS idx_global_messages_created_at 
         ON global_messages(created_at DESC)
       `);
-      console.log('✅ Global messages table ready');
+      console.log('Global messages table ready');
     } catch (error) {
       console.error('Error ensuring global_messages table:', error);
     }

@@ -1,4 +1,4 @@
-function getStoredToken() {
+export function getAuthToken() {
   if (typeof window === 'undefined') return ''
 
   try {
@@ -12,7 +12,7 @@ function getStoredToken() {
 }
 
 export function getAuthHeaders() {
-  const token = getStoredToken()
+  const token = getAuthToken()
   if (!token) return {}
 
   return {
@@ -21,7 +21,7 @@ export function getAuthHeaders() {
 }
 
 export function withAuthToken(url: string) {
-  const token = getStoredToken()
+  const token = getAuthToken()
   if (!token) return url
 
   const separator = url.includes('?') ? '&' : '?'

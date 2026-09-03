@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const max = Number(process.env.DB_MAX_POOL || 20);
 const idleTimeoutMillis = Number(process.env.DB_IDLE_TIMEOUT_MS || 30000);

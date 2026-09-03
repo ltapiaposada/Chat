@@ -13,7 +13,8 @@ const { registerHttpErrorHandling } = require('./plugins/httpErrors');
 const { createRateLimit } = require('./plugins/rateLimit');
 const { sanitizeEmail, sanitizeText } = require('./utils/sanitize');
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 15000);
 
 const AI_ACTIONS = {
   friendlier: "Reescribe el texto para que suene mas amable y cordial, sin cambiar el significado.",
@@ -231,6 +232,7 @@ fastify.post('/api/ai/assist', {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
       body: JSON.stringify({
         contents: [
           { role: 'user', parts: [{ text: prompt }] }
@@ -255,6 +257,9 @@ fastify.post('/api/ai/assist', {
     return reply.send({ text: cleaned || input });
   } catch (error) {
     request.log.error({ err: error }, 'ai assist error');
+    if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+      return reply.status(504).send({ error: 'La IA tardó demasiado en responder' });
+    }
     return reply.status(500).send({ error: 'Error del servidor' });
   }
 });

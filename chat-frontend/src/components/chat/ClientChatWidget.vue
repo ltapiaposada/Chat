@@ -185,10 +185,6 @@
               </div>
             </div>
 
-            <div v-if="chatStore.typingUsers.size > 0" class="typing-indicator">
-              <span class="typing-dots"></span>
-              Escribiendo...
-            </div>
           </div>
 
           <!-- Reply indicator -->
@@ -210,6 +206,11 @@
               :show-existing="false"
               @queueChanged="queuedCount = $event"
             />
+          </div>
+
+          <div v-if="chatStore.typingUsers.size > 0" class="typing-indicator">
+            <span class="typing-dots"></span>
+            Escribiendo...
           </div>
 
           <div class="input-area" v-if="chatStore.clientChat?.status !== 'closed'">
@@ -422,6 +423,12 @@ function sendMessage() {
     pendingOptimistic.value = attachmentsRef.value?.getQueuedPreviews?.() || []
     placeholder = getAttachmentPlaceholder(pendingOptimistic.value)
   }
+  console.debug('[client-widget] sendMessage', {
+    queuedCount: queuedCount.value,
+    awaiting: awaitingAttachmentMessage.value,
+    placeholder,
+    hasContent: !!content
+  })
   chatStore.clientSendMessage(content || placeholder, replyId, queuedCount.value > 0)
   messageInput.value = ''
   chatStore.stopTyping()
@@ -545,20 +552,30 @@ function handleSurveySubmit(rating: number, feedback: string) {
   startNewChatAfterClosed()
 }
 
-// Auto-scroll to bottom
-watch(() => chatStore.currentMessages.length, async () => {
+async function scrollMessagesToBottom() {
   await nextTick()
   if (messagesContainer.value) {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
-})
+}
+
+// Keep the latest message visible when content or the typing bar changes height.
+watch(() => chatStore.currentMessages.length, scrollMessagesToBottom)
+watch(() => chatStore.typingUsers.size, scrollMessagesToBottom)
 
 watch(
   () => chatStore.currentMessages[chatStore.currentMessages.length - 1],
   (message) => {
     if (!message) return
+    console.debug('[client-widget] lastMessage', {
+      id: message.id,
+      senderRole: message.senderRole,
+      awaiting: awaitingAttachmentMessage.value,
+      queuedCount: queuedCount.value
+    })
     if (awaitingAttachmentMessage.value && message.senderRole === 'client') {
       pendingEntityId.value = message.id
+      attachmentsRef.value?.flushQueuedToEntity?.(message.id)
       if (pendingOptimistic.value.length > 0) {
         optimisticByMessageId.value = {
           ...optimisticByMessageId.value,
@@ -853,6 +870,7 @@ function handleDocumentClick(event: MouseEvent) {
 
 .messages-container {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.75rem;
   display: flex;

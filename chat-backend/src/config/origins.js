@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const DEFAULT_ORIGIN = 'http://localhost:5173';
 

@@ -58,12 +58,12 @@ class SocketService {
     this.socket?.emit('message:send', { roomId, userId, content })
   }
 
-  startTyping(roomId: number, userId: number) {
-    this.socket?.emit('typing:start', { roomId, userId })
+  startTyping(chatId: number) {
+    this.socket?.emit('typing:start', { chatId })
   }
 
-  stopTyping(roomId: number, userId: number) {
-    this.socket?.emit('typing:stop', { roomId, userId })
+  stopTyping(chatId: number) {
+    this.socket?.emit('typing:stop', { chatId })
   }
 
   on(event: string, callback: (...args: any[]) => void) {

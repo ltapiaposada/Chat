@@ -4,14 +4,17 @@ const dbConfig = require('../../config/database');
 class PostgresDatabase {
   constructor() {
     this.pool = new Pool(dbConfig);
+    this.shouldLogQueries =
+      String(process.env.DB_LOG_QUERIES || '').toLowerCase() === 'true' &&
+      String(process.env.NODE_ENV || '').toLowerCase() !== 'production';
     
     // Test connection on initialization
     this.pool.on('connect', () => {
-      console.log('✅ Connected to PostgreSQL database');
+      console.log('Connected to PostgreSQL database');
     });
 
     this.pool.on('error', (err) => {
-      console.error('❌ Unexpected error on idle client', err);
+      console.error('Unexpected error on idle client', err);
       process.exit(-1);
     });
   }
@@ -21,7 +24,9 @@ class PostgresDatabase {
     try {
       const res = await this.pool.query(text, params);
       const duration = Date.now() - start;
-      console.log('Executed query', { text, duration, rows: res.rowCount });
+      if (this.shouldLogQueries) {
+        console.log('Executed query', { text, duration, rows: res.rowCount });
+      }
       return res;
     } catch (error) {
       console.error('Database query error:', error);

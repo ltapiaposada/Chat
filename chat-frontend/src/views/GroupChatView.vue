@@ -485,6 +485,7 @@ async function applyAi(actionId: string) {
     }
   } catch (error) {
     console.error('Error del asistente IA:', error)
+    window.alert(error instanceof Error ? error.message : 'No se pudo procesar el texto con IA.')
   } finally {
     aiBusy.value = false
   }
