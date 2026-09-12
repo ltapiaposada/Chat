@@ -3,10 +3,9 @@
     <div class="history-content">
       <div class="history-filters">
         <label v-if="authStore.isAdmin">Agente<select v-model="agentFilter"><option value="">Todos los agentes</option><option v-for="agent in historyAgents" :key="agent.id" :value="String(agent.id)">{{ agent.name }}</option></select></label>
-        <label>Desde<input v-model="dateFrom" type="date" :max="dateTo || undefined" /></label>
-        <label>Hasta<input v-model="dateTo" type="date" :min="dateFrom || undefined" /></label>
+        <label>Desde<UiDatePicker v-model="dateFrom" label="Fecha inicial" :max="dateTo || undefined" /></label>
+        <label>Hasta<UiDatePicker v-model="dateTo" label="Fecha final" :min="dateFrom || undefined" /></label>
         <button class="clear-filters" type="button" :disabled="!agentFilter && !dateFrom && !dateTo" @click="clearFilters">Limpiar filtros</button>
-        <small>Filtrar por fecha de cierre</small>
       </div>
       <p v-if="dateFrom && dateTo && dateFrom > dateTo" class="filter-error" role="alert">La fecha inicial no puede ser posterior a la fecha final.</p>
       <div v-if="loading" class="loading-state">
@@ -110,6 +109,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
+import UiDatePicker from '@/components/ui/UiDatePicker.vue'
 
 const chatStore = useChatStore()
 const authStore = useAuthStore()
@@ -475,5 +475,3 @@ const averageDuration = computed(() => {
 .loading-state,.empty-state{height:auto;min-height:180px;margin-bottom:20px}
 @media(max-width:600px){.history-filters label{flex:1;min-width:140px}.history-content{padding:16px}}
 </style>
-
-

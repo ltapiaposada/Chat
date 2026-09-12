@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <AdminPageHeader title="Métricas" description="Consulta la atención de tu empresa y el desempeño de cada agente."><button :disabled="loading" @click="load"><HeroIcon name="arrow-path" /> Actualizar</button></AdminPageHeader>
-    <div class="filters"><label>Desde<input v-model="dateFrom" type="date" :max="dateTo" /></label><label>Hasta<input v-model="dateTo" type="date" :min="dateFrom" /></label><button type="button" class="month-btn" @click="currentMonth">Mes actual</button><small>Fecha de inicio de la conversación. Todos los indicadores usan este rango.</small></div>
+    <div class="filters"><label>Desde<UiDatePicker v-model="dateFrom" label="Fecha inicial" :max="dateTo || undefined" /></label><label>Hasta<UiDatePicker v-model="dateTo" label="Fecha final" :min="dateFrom || undefined" /></label><button type="button" class="month-btn" @click="currentMonth">Mes actual</button></div>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="loading" class="loading" role="status">Cargando métricas…</p>
     <div v-if="metrics" class="cards">
@@ -55,6 +55,7 @@ import axios from 'axios'
 import { ref, watch, onMounted } from 'vue'
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
+import UiDatePicker from '@/components/ui/UiDatePicker.vue'
 import { getAuthHeaders } from '@/services/authHeaders'
 interface Breakdown { id: number | null; name: string; total_chats: number; closed_chats: number }
 interface AgentReport { id: number; name: string; assigned_chats: number; active_chats: number; closed_chats: number; channels: Breakdown[]; departments: Breakdown[] }
