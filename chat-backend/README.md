@@ -1,5 +1,8 @@
 # Chat Backend
 
+La integración de identidad segura del widget está documentada en
+[`../WIDGET_AUTHENTICATION.md`](../WIDGET_AUTHENTICATION.md).
+
 Backend para aplicación de chat construido con Fastify y Clean Architecture.
 
 ## Estructura del Proyecto
@@ -66,6 +69,17 @@ psql -U postgres -d chat_db -f src/infrastructure/database/init.sql
 ```bash
 npm run dev
 ```
+
+Las migraciones versionadas se ejecutan automáticamente al iniciar el backend.
+También pueden administrarse manualmente:
+
+```bash
+npm run migrate:up
+npm run migrate:down
+```
+
+`migrate:down` revierte únicamente la migración más reciente. Antes de usarlo
+con datos reales se debe contar con un respaldo verificado.
 
 ### Modo producción
 ```bash
@@ -138,3 +152,10 @@ Variables clave en Render (servicio backend):
 Notas:
 - El backend ahora soporta `DATABASE_URL` y SSL (`DB_SSL`, `DB_SSL_REJECT_UNAUTHORIZED`).
 - CORS y Socket.IO comparten la misma validacion de origenes.
+# Recuperación de contraseña
+
+En el login, **¿Olvidaste tu contraseña?** abre `/forgot-password`. El correo contiene un enlace a `/reset-password` con un token aleatorio de un solo uso, válido durante 30 minutos. Solo se guarda su hash en PostgreSQL; solicitar otro enlace invalida el anterior. La respuesta no revela si existe el correo.
+
+Configura en `.env` `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_FROM` según tu proveedor. `PASSWORD_RESET_URL` es el origen del frontend (por ejemplo `http://localhost:5174` en desarrollo o `https://chat.miempresa.com` en producción), no la URL del webhook. Se requiere HTTPS en producción y TLS para SMTP. Configuración de transporte: [documentación oficial de Nodemailer](https://nodemailer.com/smtp).
+
+Ejecuta `npm run migrate:up` y reinicia el backend. Si SMTP no está configurado, la vista informa que la recuperación no está disponible; no se generan enlaces falsos ni se imprimen tokens en los logs. Las identidades del widget pertenecientes a sitios externos recuperan su contraseña en su propio sitio.

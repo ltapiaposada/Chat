@@ -292,9 +292,11 @@ import { useQuickPhrases, type QuickPhrase } from '@/composables/useQuickPhrases
 import { assistText } from '@/services/aiAssist'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
 import UiTooltip from '@/components/ui/UiTooltip.vue'
+import { useAppDialog } from '@/composables/useAppDialog'
 
 const authStore = useAuthStore()
 const chatStore = useChatStore()
+const appDialog = useAppDialog()
 
 const showCreate = ref(false)
 const newGroupName = ref('')
@@ -438,9 +440,9 @@ function addMembers() {
   toggleAddMembers()
 }
 
-function removeMember(memberId: number) {
+async function removeMember(memberId: number) {
   if (!selectedGroupId.value) return
-  if (!confirm('¿Seguro que deseas quitar este miembro?')) return
+  if (!await appDialog.confirm('¿Seguro que deseas quitar este miembro?', { title: 'Quitar miembro', confirmLabel: 'Quitar' })) return
   chatStore.removeGroupMember(selectedGroupId.value, memberId)
 }
 
@@ -485,7 +487,7 @@ async function applyAi(actionId: string) {
     }
   } catch (error) {
     console.error('Error del asistente IA:', error)
-    window.alert(error instanceof Error ? error.message : 'No se pudo procesar el texto con IA.')
+    await appDialog.alert(error instanceof Error ? error.message : 'No se pudo procesar el texto con IA.', { title: 'No se pudo completar' })
   } finally {
     aiBusy.value = false
   }
@@ -1499,7 +1501,6 @@ function handleDragLeave() {
   }
 }
 </style>
-
 
 
 

@@ -2,6 +2,9 @@ const { Server } = require('socket.io');
 const userRepository = require('../repositories/UserRepository');
 const globalMessageRepository = require('../repositories/GlobalMessageRepository');
 const unreadRepository = require('../repositories/UnreadRepository');
+const agentChannelRepository = require('../repositories/AgentChannelRepository');
+const departmentRepository = require('../repositories/DepartmentRepository');
+const supportAccessPolicy = require('../../domain/policies/supportAccessPolicy');
 const { verifyAuthToken } = require('../../config/auth');
 const { createCorsOriginValidator } = require('../../config/origins');
 const { registerSupportChatHandlers } = require('./handlers/supportChatHandlers');
@@ -18,18 +21,11 @@ class SocketService {
   }
 
   ensureSupportChatAccess(socket, chat, expectedRole) {
-    if (!chat) return false;
-
-    if (expectedRole === 'client' && chat.clientId === socket.userId) {
-      return true;
-    }
-
-    if (expectedRole === 'agent' && chat.agentId === socket.userId) {
-      return true;
-    }
-
-    socket.emit('error', { message: 'Forbidden' });
-    return false;
+    const allowed = expectedRole === 'client'
+      ? supportAccessPolicy.canViewChat(socket, chat)
+      : supportAccessPolicy.canManageChat(socket, chat);
+    if (!allowed) socket.emit('error', { message: 'Forbidden' });
+    return allowed;
   }
 
   async initialize(server) {
@@ -64,15 +60,36 @@ class SocketService {
           return;
         }
 
-        const { userId, role, name } = auth;
-        this.users.set(socket.id, { userId, role, name });
+        const { userId, role, name, companyId, channelId } = auth;
+        let channelIds = channelId ? [channelId] : [];
+        let departmentIds = [];
+        if (role === 'agent') {
+          channelIds = await agentChannelRepository.findChannelIds(userId, companyId);
+          departmentIds = await departmentRepository.findAgentDepartmentIds(userId, companyId);
+        } else if (supportAccessPolicy.COMPANY_WIDE_ROLES.has(role)) {
+          channelIds = await agentChannelRepository.findCompanyChannelIds(companyId);
+        }
+        this.users.set(socket.id, { userId, role, name, companyId, channelId, channelIds, departmentIds });
         socket.userId = userId;
         socket.role = role;
         socket.userName = name;
+        socket.companyId = companyId;
+        socket.channelId = channelId;
+        socket.channelIds = channelIds;
+        socket.departmentIds = departmentIds;
         
-        if (role === 'agent') {
+        if (supportAccessPolicy.STAFF_ROLES.has(role)) {
           this.agents.set(userId, socket.id);
-          socket.join('agents');
+          socket.join(`agents:${companyId}`);
+          if (supportAccessPolicy.COMPANY_WIDE_ROLES.has(role)) {
+            socket.join(`agents:${companyId}:company-wide`);
+          }
+          for (const assignedChannelId of channelIds) {
+            socket.join(`agents:${companyId}:channel:${assignedChannelId}`);
+          }
+          for (const assignedDepartmentId of departmentIds) {
+            socket.join(`agents:${companyId}:department:${assignedDepartmentId}`);
+          }
           // Update is_online in database
           await userRepository.updateOnlineStatus(userId, true);
           // Notify global chat about new online agent
@@ -86,13 +103,13 @@ class SocketService {
         
         console.log(`👤 ${role.toUpperCase()} ${name} (${userId}) authenticated`);
         
-        socket.emit('authenticated', { userId, role, name });
+        socket.emit('authenticated', { userId, role, name, companyId, channelId, channelIds, departmentIds });
 
-        if (role === 'agent') {
+        if (supportAccessPolicy.STAFF_ROLES.has(role)) {
           try {
             const dmCounts = await unreadRepository.getDmUnreadCounts(userId);
             const groupCounts = await unreadRepository.getGroupUnreadCounts(userId);
-            const globalCount = await unreadRepository.getGlobalUnreadCount(userId);
+            const globalCount = await unreadRepository.getGlobalUnreadCount(userId, companyId);
             socket.emit('agent:unread-counts', {
               dm: dmCounts,
               groups: groupCounts,
@@ -127,30 +144,37 @@ class SocketService {
     });
   }
 
-  // Broadcast online users to global chat
+  // Broadcast online users to global chat (per company)
   broadcastGlobalUsers() {
-    const onlineUsers = [];
+    const onlineUsersByCompany = new Map();
     for (const [socketId, userInfo] of this.users.entries()) {
-      if (userInfo.role === 'agent') {
-        onlineUsers.push({
+      if (supportAccessPolicy.STAFF_ROLES.has(userInfo.role) && userInfo.companyId) {
+        const companyOnlineUsers = onlineUsersByCompany.get(userInfo.companyId) || [];
+        companyOnlineUsers.push({
           id: userInfo.userId,
           name: userInfo.name,
           role: userInfo.role
         });
+        onlineUsersByCompany.set(userInfo.companyId, companyOnlineUsers);
       }
     }
-    this.io.to('global-chat').emit('global:users', onlineUsers);
-    console.log(`🌐 Broadcasting ${onlineUsers.length} online users to global chat`);
+    for (const [companyId, onlineUsers] of onlineUsersByCompany.entries()) {
+      this.io.to(`global-chat:${companyId}`).emit('global:users', onlineUsers);
+      console.log(`🌐 Broadcasting ${onlineUsers.length} online users to global chat (company ${companyId})`);
+    }
   }
 
   broadcastAgentPresence() {
-    const onlineAgentIds = [];
+    const agentsByCompany = new Map();
     for (const [socketId, userInfo] of this.users.entries()) {
-      if (userInfo.role === 'agent') {
-        onlineAgentIds.push(userInfo.userId);
-      }
+      if (!supportAccessPolicy.STAFF_ROLES.has(userInfo.role) || !userInfo.companyId) continue;
+      const ids = agentsByCompany.get(userInfo.companyId) || [];
+      ids.push(userInfo.userId);
+      agentsByCompany.set(userInfo.companyId, ids);
     }
-    this.io.to('agents').emit('agent:online-users', { userIds: onlineAgentIds });
+    for (const [companyId, userIds] of agentsByCompany.entries()) {
+      this.io.to(`agents:${companyId}`).emit('agent:online-users', { userIds });
+    }
   }
 
   // Method to emit to a specific room

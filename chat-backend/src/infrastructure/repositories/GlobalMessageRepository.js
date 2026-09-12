@@ -51,8 +51,8 @@ class GlobalMessageRepository {
     };
   }
 
-  // Obtener los últimos N mensajes globales
-  async getRecent(limit = 100) {
+  // Obtener los últimos N mensajes globales de una empresa
+  async getRecent(limit = 100, companyId = null) {
     const result = await db.query(
       `SELECT 
         gm.id, 
@@ -63,9 +63,10 @@ class GlobalMessageRepository {
         gm.created_at as timestamp
        FROM global_messages gm
        JOIN users u ON gm.user_id = u.id
+       WHERE ($2::int IS NULL OR u.company_id = $2)
        ORDER BY gm.created_at ASC
        LIMIT $1`,
-      [limit]
+      [limit, companyId]
     );
     
     return result.rows.map(row => ({

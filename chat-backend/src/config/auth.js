@@ -39,6 +39,8 @@ function createAuthToken(user) {
     role: user.role,
     name: user.name,
     email: user.email || null,
+    companyId: user.companyId || user.company_id || null,
+    channelId: user.channelId || user.channel_id || null,
     iat: nowSeconds,
     exp: nowSeconds + ttlSeconds
   };
@@ -74,6 +76,9 @@ function verifyAuthToken(token) {
   if (!payload?.sub || !payload?.role || !payload?.exp) {
     throw new Error('Invalid token payload');
   }
+  if (!payload.companyId) {
+    throw new Error('Invalid tenant context');
+  }
   if (Math.floor(Date.now() / 1000) > Number(payload.exp)) {
     throw new Error('Token expired');
   }
@@ -82,7 +87,9 @@ function verifyAuthToken(token) {
     userId: Number(payload.sub),
     role: payload.role,
     name: payload.name || '',
-    email: payload.email || null
+    email: payload.email || null,
+    companyId: payload.companyId ? Number(payload.companyId) : null,
+    channelId: payload.channelId ? Number(payload.channelId) : null
   };
 }
 

@@ -11,13 +11,18 @@ class UserRepository {
     return result.rows[0] || null;
   }
 
-  async findByRole(role) {
-    const result = await db.query('SELECT * FROM users WHERE role = $1', [role]);
+  async findByRole(role, companyId) {
+    if (!companyId) throw new Error('companyId is required');
+    const result = await db.query('SELECT * FROM users WHERE role = $1 AND company_id = $2', [role, companyId]);
     return result.rows;
   }
 
-  async findByWhatsAppId(whatsappId) {
-    const result = await db.query('SELECT * FROM users WHERE whatsapp_id = $1', [whatsappId]);
+  async findByWhatsAppId(whatsappId, companyId, channelId) {
+    if (!companyId || !channelId) throw new Error('companyId and channelId are required');
+    const result = await db.query(
+      'SELECT * FROM users WHERE whatsapp_id = $1 AND company_id = $2 AND channel_id = $3',
+      [whatsappId, companyId, channelId]
+    );
     return result.rows[0] || null;
   }
 
@@ -29,17 +34,36 @@ class UserRepository {
     return result.rows;
   }
 
-  async create({ name, email, role, whatsappId }) {
+  async create({ name, email, role, whatsappId, companyId = null, channelId = null }) {
+    if (!companyId) throw new Error('companyId is required to create a user');
     const result = await db.query(
-      `INSERT INTO users (name, email, role, whatsapp_id) 
-       VALUES ($1, $2, $3, $4) 
+      `INSERT INTO users (name, email, role, whatsapp_id, company_id, channel_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name, email || null, role, whatsappId || null]
+      [name, email || null, role, whatsappId || null, companyId, channelId]
     );
     return result.rows[0];
   }
 
-  async findOrCreate({ id, name, role, whatsappId }) {
+  async findOrCreateWhatsApp({ name, whatsappId, companyId, channelId }) {
+    if (!whatsappId || !companyId || !channelId) {
+      throw new Error('whatsappId, companyId and channelId are required');
+    }
+    const result = await db.query(
+      `INSERT INTO users (name, role, whatsapp_id, company_id, channel_id)
+       VALUES ($1, 'client', $2, $3, $4)
+       ON CONFLICT (company_id, channel_id, whatsapp_id)
+         WHERE whatsapp_id IS NOT NULL
+       DO UPDATE SET
+         name = EXCLUDED.name,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [name, whatsappId, companyId, channelId]
+    );
+    return result.rows[0];
+  }
+
+  async findOrCreate({ id, name, role, whatsappId, companyId = null, channelId = null }) {
     // Try to find existing user by id
     if (id) {
       const existing = await this.findById(id);
@@ -49,18 +73,20 @@ class UserRepository {
     }
 
     if (whatsappId) {
-      const existingByWhatsapp = await this.findByWhatsAppId(whatsappId);
+      const existingByWhatsapp = await this.findByWhatsAppId(whatsappId, companyId, channelId);
       if (existingByWhatsapp) {
         return existingByWhatsapp;
       }
     }
 
+    if (!companyId) throw new Error('companyId is required to create a user');
+
     // Create new user
     const result = await db.query(
-      `INSERT INTO users (name, role, whatsapp_id) 
-       VALUES ($1, $2, $3) 
+      `INSERT INTO users (name, role, whatsapp_id, company_id, channel_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [name, role, whatsappId || null]
+      [name, role, whatsappId || null, companyId, channelId]
     );
     return result.rows[0];
   }

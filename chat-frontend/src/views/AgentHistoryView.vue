@@ -1,6 +1,14 @@
 ﻿<template>
   <div class="history-container">
     <div class="history-content">
+      <div class="history-filters">
+        <label v-if="authStore.isAdmin">Agente<select v-model="agentFilter"><option value="">Todos los agentes</option><option v-for="agent in historyAgents" :key="agent.id" :value="String(agent.id)">{{ agent.name }}</option></select></label>
+        <label>Desde<input v-model="dateFrom" type="date" :max="dateTo || undefined" /></label>
+        <label>Hasta<input v-model="dateTo" type="date" :min="dateFrom || undefined" /></label>
+        <button class="clear-filters" type="button" :disabled="!agentFilter && !dateFrom && !dateTo" @click="clearFilters">Limpiar filtros</button>
+        <small>Filtrar por fecha de cierre</small>
+      </div>
+      <p v-if="dateFrom && dateTo && dateFrom > dateTo" class="filter-error" role="alert">La fecha inicial no puede ser posterior a la fecha final.</p>
       <div v-if="loading" class="loading-state">
         <span class="spinner"></span>
         <p>Cargando historial...</p>
@@ -9,14 +17,14 @@
       <div v-else-if="chatStore.agentChatHistory.length === 0" class="empty-state">
         <span class="empty-icon"><HeroIcon name="inbox" /></span>
         <h2>Sin historial</h2>
-        <p>Aún no tienes conversaciones cerradas</p>
+        <p>{{ authStore.isAdmin ? 'Aún no hay conversaciones cerradas en tu empresa' : 'Aún no tienes conversaciones cerradas' }}</p>
       </div>
 
       <!-- Summary Stats -->
-      <div v-if="chatStore.agentChatHistory.length > 0" class="stats-summary">
+      <div v-if="!loading" class="stats-summary">
         <div class="stat-card">
           <span class="stat-icon"><HeroIcon name="clipboard-document-list" /></span>
-          <span class="stat-value">{{ chatStore.agentChatHistory.length }}</span>
+          <span class="stat-value">{{ filteredHistory.length }}</span>
           <span class="stat-label">Chats cerrados</span>
         </div>
         <div class="stat-card">
@@ -36,27 +44,29 @@
         </div>
       </div>
 
-      <div v-if="chatStore.agentChatHistory.length > 0" class="history-table-wrapper">
+      <div v-if="!loading && filteredHistory.length > 0" class="history-table-wrapper">
         <table class="history-table">
           <thead>
             <tr>
               <th>Cliente</th>
+              <th v-if="authStore.isAdmin">Agente</th>
               <th>Asunto</th>
-              <th>Primera Respuesta</th>
+              <th>Primera respuesta</th>
               <th>Duración</th>
               <th>Calificación</th>
               <th>Comentario</th>
-              <th>Fecha</th>
+              <th>Fecha de cierre</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="chat in chatStore.agentChatHistory" :key="chat.id">
+            <tr v-for="chat in filteredHistory" :key="chat.id">
               <td class="client-cell">
                 <div class="client-avatar">
                   {{ getInitials(chat.clientName) }}
                 </div>
                 <span>{{ chat.clientName || `Cliente #${chat.clientId}` }}</span>
               </td>
+              <td v-if="authStore.isAdmin">{{ chat.agentName || 'Sin agente' }}</td>
               <td class="subject-cell">{{ chat.subject || 'Sin asunto' }}</td>
               <td class="response-cell">
                 <span v-if="chat.firstResponseSeconds != null" class="response-time" :class="getResponseClass(chat.firstResponseSeconds)">
@@ -84,11 +94,12 @@
                 </span>
                 <span v-else class="no-feedback">—</span>
               </td>
-              <td class="date-cell">{{ formatDate(chat.createdAt) }}</td>
+              <td class="date-cell">{{ formatDate(chat.closedAt || chat.createdAt) }}</td>
             </tr>
           </tbody>
         </table>
       </div>
+      <p v-if="!loading && chatStore.agentChatHistory.length && !filteredHistory.length" class="no-results">No hay conversaciones que coincidan con los filtros seleccionados.</p>
 
     </div>
   </div>
@@ -97,9 +108,37 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
+import { useAuthStore } from '@/stores/auth'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
 
 const chatStore = useChatStore()
+const authStore = useAuthStore()
+const agentFilter = ref('')
+const currentDate = new Date()
+function dateInputValue(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+const dateFrom = ref(dateInputValue(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)))
+const dateTo = ref(dateInputValue(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)))
+const historyAgents = computed(() => {
+  const agents = new Map<number, string>()
+  for (const chat of chatStore.agentChatHistory) {
+    if (chat.agentId != null) agents.set(chat.agentId, chat.agentName || `Agente #${chat.agentId}`)
+  }
+  return Array.from(agents, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'es'))
+})
+const filteredHistory = computed(() => {
+  if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) return []
+  const from = dateFrom.value ? new Date(`${dateFrom.value}T00:00:00`).getTime() : -Infinity
+  const end = dateTo.value ? new Date(`${dateTo.value}T00:00:00`) : null
+  if (end) end.setDate(end.getDate() + 1)
+  const until = end ? end.getTime() : Infinity
+  return chatStore.agentChatHistory.filter(chat => {
+    const time = new Date(chat.closedAt || chat.createdAt).getTime()
+    return (!authStore.isAdmin || !agentFilter.value || String(chat.agentId) === agentFilter.value) && time >= from && time < until
+  })
+})
+function clearFilters() { agentFilter.value = ''; dateFrom.value = ''; dateTo.value = '' }
 
 const loading = ref(true)
 
@@ -154,21 +193,21 @@ function truncate(text: string, maxLength: number): string {
 }
 
 const averageRating = computed(() => {
-  const ratedChats = chatStore.agentChatHistory.filter(c => c.rating)
+  const ratedChats = filteredHistory.value.filter(c => c.rating != null)
   if (ratedChats.length === 0) return '—'
   const avg = ratedChats.reduce((sum, c) => sum + (c.rating || 0), 0) / ratedChats.length
   return avg.toFixed(1)
 })
 
 const averageResponseTime = computed(() => {
-  const chatsWithResponse = chatStore.agentChatHistory.filter(c => c.firstResponseSeconds !== undefined)
+  const chatsWithResponse = filteredHistory.value.filter(c => c.firstResponseSeconds != null)
   if (chatsWithResponse.length === 0) return '—'
   const avg = chatsWithResponse.reduce((sum, c) => sum + (c.firstResponseSeconds || 0), 0) / chatsWithResponse.length
   return formatDuration(Math.round(avg))
 })
 
 const averageDuration = computed(() => {
-  const chatsWithDuration = chatStore.agentChatHistory.filter(c => c.durationSeconds !== undefined)
+  const chatsWithDuration = filteredHistory.value.filter(c => c.durationSeconds != null)
   if (chatsWithDuration.length === 0) return '—'
   const avg = chatsWithDuration.reduce((sum, c) => sum + (c.durationSeconds || 0), 0) / chatsWithDuration.length
   return formatDuration(Math.round(avg))
@@ -188,6 +227,17 @@ const averageDuration = computed(() => {
   padding: 1.5rem;
   overflow-y: auto;
 }
+
+.history-filters{display:flex;align-items:flex-end;flex-wrap:wrap;gap:14px;padding:18px;background:#fff;border:1px solid var(--color-border);border-radius:12px;margin-bottom:20px}
+.history-filters label{display:flex;flex-direction:column;gap:7px;font-size:.82rem;font-weight:600;min-width:170px}
+.history-filters input,.history-filters select{height:40px;padding:8px 12px;border:1px solid var(--color-border-strong);border-radius:9px;background:#fff;color:var(--color-text);font:inherit}
+.history-filters input:focus-visible,.history-filters select:focus-visible,.clear-filters:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
+.clear-filters{height:40px;padding:0 14px;border:0;border-radius:9px;background:var(--color-primary-soft);color:var(--color-primary);font-weight:600;cursor:pointer}
+.clear-filters:hover{background:#e4dffc}.clear-filters:disabled{opacity:.45;cursor:default}
+.history-filters small{align-self:center;color:var(--color-text-muted);font-size:.76rem}
+.filter-error{color:var(--color-danger-dark);margin-bottom:16px;font-size:.84rem}
+.no-results{padding:32px;text-align:center;color:var(--color-text-muted);background:#fff;border:1px solid var(--color-border);border-radius:12px}
+.loading-state,.empty-state{height:auto;min-height:180px;margin-bottom:20px}
 
 .loading-state, .empty-state {
   display: flex;
@@ -422,9 +472,8 @@ const averageDuration = computed(() => {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+.loading-state,.empty-state{height:auto;min-height:180px;margin-bottom:20px}
+@media(max-width:600px){.history-filters label{flex:1;min-width:140px}.history-content{padding:16px}}
 </style>
-
-
-
 
 

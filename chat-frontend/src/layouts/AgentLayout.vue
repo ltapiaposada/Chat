@@ -12,7 +12,7 @@
       <nav class="sidebar-nav">
         <router-link to="/agent/dashboard" class="nav-item" active-class="active">
           <span class="nav-icon"><HeroIcon name="chat-bubble-left-right" /></span>
-          <span class="nav-text">Mis Chats</span>
+          <span class="nav-text">Mis chats</span>
           <span v-if="chatStore.activeChats.length > 0" class="nav-badge">
             {{ chatStore.activeChats.length }}
           </span>
@@ -46,6 +46,23 @@
           <span class="nav-icon"><HeroIcon name="chart-bar" /></span>
           <span class="nav-text">Historial</span>
         </router-link>
+
+        <router-link v-if="authStore.isAdmin" to="/agent/settings/channels" class="nav-item" active-class="active">
+          <span class="nav-icon"><HeroIcon name="adjustments-horizontal" /></span>
+          <span class="nav-text">Configuración</span>
+        </router-link>
+        <router-link v-if="authStore.isAdmin" to="/agent/settings/departments" class="nav-item" active-class="active">
+          <span class="nav-icon"><HeroIcon name="briefcase" /></span>
+          <span class="nav-text">Departamentos</span>
+        </router-link>
+        <router-link v-if="authStore.isAdmin" to="/agent/settings/agents" class="nav-item" active-class="active">
+          <span class="nav-icon"><HeroIcon name="users" /></span>
+          <span class="nav-text">Agentes</span>
+        </router-link>
+        <router-link v-if="authStore.role === 'admin' || authStore.role === 'supervisor'" to="/agent/settings/metrics" class="nav-item" active-class="active">
+          <span class="nav-icon"><HeroIcon name="chart-bar" /></span>
+          <span class="nav-text">Métricas</span>
+        </router-link>
       </nav>
 
       <div class="sidebar-footer">
@@ -59,6 +76,16 @@
               {{ chatStore.isConnected ? 'En línea' : 'Desconectado' }}
             </span>
           </div>
+          <button
+            v-if="route.name === 'agent-dashboard'"
+            class="sidebar-logout-btn"
+            type="button"
+            title="Salir"
+            aria-label="Cerrar sesión"
+            @click="handleLogout"
+          >
+            <HeroIcon name="arrow-right-on-rectangle" />
+          </button>
         </div>
       </div>
     </aside>
@@ -66,7 +93,7 @@
     <!-- Main content area -->
     <div class="main-wrapper">
       <!-- Navbar -->
-      <header class="navbar">
+      <header v-if="route.name !== 'agent-dashboard'" class="navbar">
         <div class="navbar-left">
           <div class="page-title-wrap">
             <h1 class="page-title">{{ pageTitle }}</h1>
@@ -110,21 +137,38 @@ import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
 import UiTooltip from '@/components/ui/UiTooltip.vue'
+import { useAppDialog } from '@/composables/useAppDialog'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
+const appDialog = useAppDialog()
+let pendingSyncInterval: number | null = null
+
+function syncPendingChats() {
+  if (authStore.isAuthenticated && authStore.isStaff && chatStore.isConnected) {
+    chatStore.getPendingChats()
+  }
+}
+
+function handleVisibilitySync() {
+  if (document.visibilityState === 'visible') syncPendingChats()
+}
 
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
-    'agent-dashboard': 'Mis Conversaciones',
-    'agent-pending': 'Chats Pendientes',
+    'agent-dashboard': 'Mis conversaciones',
+    'agent-pending': 'Chats pendientes',
     'agent-history': 'Historial',
-    'agent-global-chat': 'Equipo de Agentes',
-    'agent-groups': 'Grupos'
+    'agent-global-chat': 'Equipo de agentes',
+    'agent-groups': 'Grupos',
+    'admin-channels': 'Configuración de canales',
+    'admin-agents': 'Administración de agentes',
+    'admin-departments': 'Configuración de departamentos',
+    'admin-metrics': 'Métricas de atención'
   }
-  return titles[route.name as string] || 'Panel de Agente'
+  return titles[route.name as string] || 'Panel de agente'
 })
 
 const agentTotalCount = computed(() => {
@@ -162,7 +206,7 @@ const groupsUnreadCount = computed(() => {
 })
 
 onMounted(() => {
-  if (!authStore.isAuthenticated || !authStore.isAgent) {
+  if (!authStore.isAuthenticated || !authStore.isStaff) {
     router.push('/')
     return
   }
@@ -177,9 +221,15 @@ onMounted(() => {
   window.addEventListener('pointerdown', unlock, { once: true })
   window.addEventListener('keydown', unlock, { once: true })
   window.addEventListener('touchstart', unlock, { once: true })
+  window.addEventListener('focus', syncPendingChats)
+  document.addEventListener('visibilitychange', handleVisibilitySync)
+  pendingSyncInterval = window.setInterval(syncPendingChats, 15000)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('focus', syncPendingChats)
+  document.removeEventListener('visibilitychange', handleVisibilitySync)
+  if (pendingSyncInterval) window.clearInterval(pendingSyncInterval)
   chatStore.leaveGlobalRoom()
   chatStore.setViewingGlobalChat(false)
 })
@@ -206,8 +256,8 @@ function getInitials(name?: string): string {
   return (name.substring(0, 2) || 'A').toUpperCase()
 }
 
-function handleLogout() {
-  if (confirm('¿Estás seguro de que deseas salir?')) {
+async function handleLogout() {
+  if (await appDialog.confirm('¿Estás seguro de que deseas salir?', { title: 'Cerrar sesión', confirmLabel: 'Salir' })) {
     chatStore.disconnectSocket()
     chatStore.reset()
     authStore.logout()
@@ -224,6 +274,62 @@ function handleLogout() {
   background: var(--color-bg);
   min-width: 0;
 }
+
+/* Consola visual: navegación sobria y superficies planas */
+.sidebar {
+  width: 232px;
+  min-width: 232px;
+  background: #15172e;
+}
+
+.sidebar-header {
+  min-height: 72px;
+  padding: 0 22px;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-header .logo {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #ffffff;
+  background: #5849e0;
+  font-size: 1.1rem;
+}
+
+.sidebar-header h2 { font-size: 1rem; font-weight: 700; }
+.sidebar-nav { padding: 18px 12px; gap: 4px; }
+.nav-item {
+  min-height: 42px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: #a9abc2;
+  transition: background-color .16s ease, color .16s ease;
+}
+.nav-item:hover { background: #22254a; color: #ffffff; }
+.nav-item.active {
+  background: #31356a;
+  color: #ffffff;
+  box-shadow: inset 3px 0 0 #7c6ff0;
+}
+.nav-icon { width: 22px; height: 22px; font-size: 1rem; }
+.nav-text { font-size: .84rem; font-weight: 600; }
+.nav-badge { min-width: 20px; height: 20px; padding: 0 6px; background: #5849e0; }
+.nav-badge.alert { background: #d8464c; animation: none; }
+.sidebar-footer { padding: 16px; border-top-color: rgba(255,255,255,.08); }
+.agent-avatar { width: 36px; height: 36px; background: #31356a; }
+.agent-name { color: #fff; font-weight: 600; }
+.agent-status { position: relative; padding-left: 12px; color: #a9abc2; }
+.agent-status::before { content: ''; position: absolute; left: 0; top: 50%; width: 7px; height: 7px; border-radius: 50%; background: #6c6f8d; transform: translateY(-50%); }
+.agent-status.online { color: #a9abc2; }
+.agent-status.online::before { background: #27c58a; }
+.navbar { min-height: 64px; padding: 0 24px; background: #fff; }
+.page-title { font-family: Manrope, Inter, sans-serif; font-size: 1.05rem; font-weight: 700; }
+.logout-icon-btn { border-radius: 8px; color: #50536f; box-shadow: none; }
+.logout-icon-btn:hover { transform: none; color: #d8464c; background: #fff0f1; border-color: #f3c3c6; }
 
 /* Sidebar */
 .sidebar {
@@ -652,8 +758,32 @@ function handleLogout() {
 }
 </style>
 
-
-
-
-
-
+<style scoped>
+.agent-layout > .sidebar { width: 232px; min-width: 232px; background: #15172e; }
+.agent-layout .sidebar-header { min-height: 72px; padding: 0 22px; border-bottom-color: rgba(255,255,255,.08); }
+.agent-layout .sidebar-header .logo { width: 34px; height: 34px; display:grid; place-items:center; border-radius:10px; background:#5849e0; font-size:1.1rem; }
+.agent-layout .sidebar-header h2 { font-size:1rem; font-weight:700; }
+.agent-layout .sidebar-nav { padding:18px 12px; gap:4px; }
+.agent-layout .nav-item { min-height:42px; margin:0; padding:0 12px; border-radius:8px; color:#a9abc2; }
+.agent-layout .nav-item:hover { background:#22254a; color:#fff; }
+.agent-layout .nav-item.active { background:#31356a; color:#fff; box-shadow:inset 3px 0 0 #7c6ff0; }
+.agent-layout .nav-icon { width:22px; height:22px; font-size:1rem; }
+.agent-layout .nav-text { font-size:.84rem; font-weight:600; }
+.agent-layout .nav-badge { min-width:20px; height:20px; background:#5849e0; }
+.agent-layout .nav-badge.alert { background:#d8464c; animation:none; }
+.agent-layout .sidebar-footer { padding:16px; border-top-color:rgba(255,255,255,.08); }
+.agent-layout .agent-avatar { width:36px; height:36px; background:#31356a; }
+.agent-layout .agent-name { color:#fff; font-weight:600; }
+.agent-layout .agent-details { min-width:0; }
+.agent-layout .agent-name { max-width:105px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sidebar-logout-btn { width:34px; height:34px; margin-left:auto; flex:0 0 34px; padding:0; border:1px solid rgba(255,255,255,.12); border-radius:8px; background:transparent; color:#a9abc2; cursor:pointer; }
+.sidebar-logout-btn :deep(svg) { width:17px; height:17px; }
+.sidebar-logout-btn:hover { background:#31356a; border-color:rgba(255,255,255,.22); color:#fff; }
+.agent-layout .agent-status { position:relative; padding-left:12px; color:#a9abc2; }
+.agent-layout .agent-status::before { content:''; position:absolute; left:0; top:50%; width:7px; height:7px; border-radius:50%; background:#6c6f8d; transform:translateY(-50%); }
+.agent-layout .agent-status.online { color:#a9abc2; }
+.agent-layout .agent-status.online::before { background:#27c58a; }
+.agent-layout .navbar { min-height:64px; padding:0 24px; background:#fff; }
+.agent-layout .page-title { font-family:Manrope,Inter,sans-serif; font-size:1.05rem; font-weight:700; }
+@media (max-width: 640px) { .agent-layout > .sidebar { width:100%; min-width:0; } }
+</style>

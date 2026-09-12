@@ -40,7 +40,11 @@ import {
   UsersIcon,
   XCircleIcon,
   AdjustmentsHorizontalIcon,
-  BriefcaseIcon
+  BriefcaseIcon,
+  ChevronRightIcon,
+  GlobeAltIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps<{
@@ -83,7 +87,11 @@ const icons: Record<string, any> = {
   users: UsersIcon,
   'x-circle': XCircleIcon,
   'adjustments-horizontal': AdjustmentsHorizontalIcon,
-  briefcase: BriefcaseIcon
+  briefcase: BriefcaseIcon,
+  'chevron-right': ChevronRightIcon,
+  'globe-alt': GlobeAltIcon,
+  'exclamation-triangle': ExclamationTriangleIcon,
+  'information-circle': InformationCircleIcon
 }
 
 const icon = computed(() => icons[props.name])
@@ -98,5 +106,3 @@ const icon = computed(() => icons[props.name])
   justify-content: center;
 }
 </style>
-
-

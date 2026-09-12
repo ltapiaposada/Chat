@@ -47,6 +47,7 @@ test('support handlers register expected core events', () => {
       'agent:transfer-chat',
       'chat:submit-survey',
       'client:end-chat',
+      'client:get-departments',
       'client:get-history',
       'client:send-message',
       'client:start-chat',

@@ -14,18 +14,22 @@
       <!-- Chats sidebar -->
       <aside class="chats-sidebar">
         <div class="sidebar-header">
-          <h3>Mis Conversaciones</h3>
-          <div class="sidebar-actions">
-            <UiTooltip :text="chatStore.soundEnabled ? 'Silenciar sonido' : 'Activar sonido'">
-              <button
-                class="sound-toggle"
-                type="button"
-                @click="chatStore.toggleSoundEnabled()"
-              >
-                <HeroIcon :name="chatStore.soundEnabled ? 'speaker-wave' : 'speaker-x-mark'" />
-              </button>
-            </UiTooltip>
-            <span v-if="totalUnread > 0" class="unread-total">{{ totalUnread }}</span>
+          <h3>Mis conversaciones</h3>
+        </div>
+
+        <div class="conversation-tools">
+          <label class="conversation-search">
+            <HeroIcon name="magnifying-glass" />
+            <input v-model="chatSearch" type="search" placeholder="Buscar por nombre" />
+          </label>
+          <div class="conversation-filters" aria-label="Filtrar conversaciones">
+            <button
+              v-for="filter in chatFilters"
+              :key="filter.value"
+              type="button"
+              :class="{ active: chatFilter === filter.value }"
+              @click="chatFilter = filter.value"
+            >{{ filter.label }}</button>
           </div>
         </div>
 
@@ -38,32 +42,39 @@
 
         <div v-else class="chats-list">
           <div
-            v-for="chat in chatStore.activeChats"
+            v-for="chat in filteredChats"
             :key="chat.id"
             class="chat-item"
             :class="{ active: chat.id === chatStore.currentChatId, 'on-hold': chat.status === 'on_hold' }"
             @click="selectChat(chat.id)"
           >
-            <div class="chat-item-header">
-              <span
-                class="client-name-text"
-                :title="chat.clientName || `Cliente #${chat.clientId}`"
-              >
-                {{ chat.clientName || `Cliente #${chat.clientId}` }}
-              </span>
-              <span class="chat-meta-right">
-                <span class="chat-badges">
-                  <span v-if="chat.channel === 'whatsapp'" class="channel-badge">WhatsApp</span>
-                  <span v-if="chat.unreadCount > 0 && chat.id !== chatStore.currentChatId" class="unread-badge">
-                    {{ chat.unreadCount }}
-                  </span>
-                </span>
-                <span class="chat-status" :class="chat.status">
-                  {{ getStatusLabel(chat.status) }}
-                </span>
-              </span>
+            <div class="conversation-avatar-wrap">
+              <div class="conversation-avatar">{{ getInitials(chat.clientName) }}</div>
+              <span v-if="chat.status === 'active'" class="presence-dot"></span>
             </div>
-            <p class="last-message">{{ chat.lastMessage || chat.subject || 'Sin mensajes' }}</p>
+            <div class="conversation-summary">
+              <div class="chat-item-header">
+                <span
+                  class="client-name-text"
+                  :title="chat.clientName || `Cliente #${chat.clientId}`"
+                >
+                  {{ chat.clientName || `Cliente #${chat.clientId}` }}
+                </span>
+                <span class="conversation-time">{{ formatChatTime(chat.lastCustomerMessageAt || chat.createdAt) }}</span>
+              </div>
+              <p v-if="chat.subject && chat.channel !== 'whatsapp'" class="conversation-subject" :title="chat.subject">{{ chat.subject }}</p>
+              <p class="last-message">{{ chat.lastMessage || 'Sin mensajes' }}</p>
+              <div class="conversation-meta-row">
+                <span class="channel-badge" :class="chat.channel === 'whatsapp' ? 'whatsapp' : 'web'">
+                  {{ chat.channel === 'whatsapp' ? 'WhatsApp' : 'Web chat' }}
+                </span>
+                <small v-if="chat.departmentName" class="department-name">{{ chat.departmentName }}</small>
+                <span v-if="chat.unreadCount > 0 && chat.id !== chatStore.currentChatId" class="unread-badge">
+                  {{ chat.unreadCount }}
+                </span>
+                <span v-if="chat.status === 'on_hold'" class="chat-status on_hold">En espera</span>
+              </div>
+            </div>
           </div>
         </div>
       </aside>
@@ -79,8 +90,14 @@
         <template v-else>
           <div class="chat-header">
             <div class="chat-info">
-              <h2>{{ chatStore.currentChat?.clientName || `Cliente #${chatStore.currentChat?.clientId}` }}</h2>
-              <span class="chat-subject">{{ chatStore.currentChat?.subject }}</span>
+              <div class="header-avatar">{{ getInitials(chatStore.currentChat?.clientName) }}</div>
+              <div>
+                <h2>{{ chatStore.currentChat?.clientName || `Cliente #${chatStore.currentChat?.clientId}` }}</h2>
+                <small class="channel-context" :title="chatStore.currentChat?.subject">
+                  {{ chatStore.currentChat?.channel === 'whatsapp' ? 'WhatsApp' : 'Web chat' }}
+                  <template v-if="chatStore.currentChat?.subject && chatStore.currentChat?.channel !== 'whatsapp'"> · {{ chatStore.currentChat.subject }}</template>
+                </small>
+              </div>
             </div>
             <div class="chat-controls">
               <button 
@@ -118,16 +135,16 @@
               v-for="message in chatStore.currentMessages"
               :key="message.id"
               class="message"
-              :class="{ own: message.senderRole === 'agent' }"
+              :class="{ own: isStaffRole(message.senderRole) }"
             >
               <!-- Avatar -->
-              <div class="message-avatar" :class="message.senderRole" :title="message.senderRole === 'agent' ? (message.senderName || 'Agente') : (chatStore.currentChat?.clientName || 'Cliente')">
-                {{ message.senderRole === 'agent' ? getInitials(message.senderName || authStore.name) : getInitials(chatStore.currentChat?.clientName) }}
+              <div class="message-avatar" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'" :title="isStaffRole(message.senderRole) ? (message.senderName || 'Agente') : (chatStore.currentChat?.clientName || 'Cliente')">
+                {{ isStaffRole(message.senderRole) ? getInitials(message.senderName || authStore.name) : getInitials(chatStore.currentChat?.clientName) }}
               </div>
               <div class="message-content">
                 <!-- Nombre del remitente -->
-                <span class="sender-name" :class="message.senderRole">
-                  {{ message.senderRole === 'agent' ? (message.senderName || 'Tú') : (chatStore.currentChat?.clientName || 'Cliente') }}
+                <span class="sender-name" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'">
+                  {{ isStaffRole(message.senderRole) ? (message.senderName || 'Tú') : (chatStore.currentChat?.clientName || 'Cliente') }}
                 </span>
                 <div class="message-bubble">
                   <!-- Reply preview -->
@@ -149,7 +166,7 @@
                         <path d="M5 11H14C17.314 11 20 13.686 20 17V19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
                     </button>
-                    <span v-if="message.senderRole === 'agent'" class="message-status" :class="message.status">
+                    <span v-if="isStaffRole(message.senderRole)" class="message-status" :class="message.status">
                       <span v-if="message.status === 'sent'">✓</span>
                       <span v-else-if="message.status === 'delivered'">✓✓</span>
                       <span v-else-if="message.status === 'read'" class="read">✓✓</span>
@@ -164,7 +181,7 @@
           <!-- Reply indicator -->
           <div v-if="chatStore.replyingToMessage" class="replying-to-bar">
             <div class="replying-to-content">
-              <span class="replying-to-label">Respondiendo a {{ chatStore.replyingToMessage.senderRole === 'agent' ? 'ti mismo' : 'cliente' }}:</span>
+              <span class="replying-to-label">Respondiendo a {{ isStaffRole(chatStore.replyingToMessage.senderRole) ? 'ti mismo' : 'cliente' }}:</span>
               <p>{{ chatStore.replyingToMessage.content }}</p>
             </div>
             <button class="cancel-reply-btn" @click="chatStore.clearReplyingTo()">
@@ -203,6 +220,11 @@
               @close="closeQuickPhraseModal"
             />
             <div class="input-row primary">
+              <AiAssistMenu
+                :disabled="!messageInput.trim()"
+                :busy="aiBusy"
+                @select="applyAi"
+              />
               <textarea
                 ref="inputElement"
                 v-model="messageInput"
@@ -213,6 +235,19 @@
                 @input="handleInputChange"
                 @paste="handlePaste"
               ></textarea>
+              <div class="emoji-picker-wrapper" ref="emojiPickerWrapperRef">
+                <button class="emoji-btn" @click="showEmojiPicker = !showEmojiPicker" type="button">
+                  <HeroIcon name="face-smile" />
+                </button>
+                <div v-if="showEmojiPicker" class="emoji-picker">
+                  <EmojiMartPicker class="emoji-mart-panel" @select="insertEmoji" />
+                </div>
+              </div>
+              <button class="attach-btn" type="button" @click="attachmentsRef?.openFilePicker?.()">
+                <svg class="attach-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21 12L13.5 19.5C11.015 21.985 6.985 21.985 4.5 19.5C2.015 17.015 2.015 12.985 4.5 10.5L12 3C13.657 1.343 16.343 1.343 18 3C19.657 4.657 19.657 7.343 18 9L10.5 16.5C9.672 17.328 8.328 17.328 7.5 16.5C6.672 15.672 6.672 14.328 7.5 13.5L14 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
               <button
                 class="mic-btn"
                 type="button"
@@ -237,34 +272,16 @@
                 class="send-btn" 
                 @click="sendMessage"
                 :disabled="!messageInput.trim() && queuedCount === 0"
+                title="Enviar mensaje"
+                aria-label="Enviar mensaje"
               >
-                <span class="send-icon"><HeroIcon name="paper-airplane" /></span>
-                Enviar
+                <svg class="send-button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21.5 3.2 9.7 15" />
+                  <path d="m21.5 3.2-7.1 17.2-4.7-5.4-6.1-2.7 17.9-9.1Z" />
+                </svg>
               </button>
             </div>
             <div class="input-row actions">
-              <AiAssistMenu
-                :disabled="!messageInput.trim()"
-                :busy="aiBusy"
-                @select="applyAi"
-              />
-              <div class="emoji-picker-wrapper" ref="emojiPickerWrapperRef">
-              <button 
-                class="emoji-btn" 
-                @click="showEmojiPicker = !showEmojiPicker"
-                type="button"
-              >
-                <HeroIcon name="face-smile" />
-              </button>
-              <div v-if="showEmojiPicker" class="emoji-picker">
-                  <EmojiMartPicker class="emoji-mart-panel" @select="insertEmoji" />
-                </div>
-              </div>
-              <button class="attach-btn" type="button" @click="attachmentsRef?.openFilePicker?.()">
-                <svg class="attach-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M21 12L13.5 19.5C11.015 21.985 6.985 21.985 4.5 19.5C2.015 17.015 2.015 12.985 4.5 10.5L12 3C13.657 1.343 16.343 1.343 18 3C19.657 4.657 19.657 7.343 18 9L10.5 16.5C9.672 17.328 8.328 17.328 7.5 16.5C6.672 15.672 6.672 14.328 7.5 13.5L14 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
               <span v-if="attachmentsRef?.recordError" class="record-error">
                 {{ attachmentsRef?.recordError }}
               </span>
@@ -331,13 +348,15 @@ import QuickPhrasePanel from '@/components/chat/QuickPhrasePanel.vue'
 import QuickPhraseModal from '@/components/chat/QuickPhraseModal.vue'
 import AiAssistMenu from '@/components/chat/AiAssistMenu.vue'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
-import UiTooltip from '@/components/ui/UiTooltip.vue'
 import { useQuickPhrases, type QuickPhrase } from '@/composables/useQuickPhrases'
 import { assistText } from '@/services/aiAssist'
+import { useAppDialog } from '@/composables/useAppDialog'
+import { isStaffRole } from '@/utils/chatRoles'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
+const appDialog = useAppDialog()
 
 const messageInput = ref('')
 const mensajesContainer = ref<HTMLElement | null>(null)
@@ -374,14 +393,38 @@ const aiBusy = ref(false)
 
 const filteredPhrases = computed(() => getFiltered(quickPhraseQuery.value))
 
-const totalUnread = computed(() => {
-  return chatStore.activeChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0)
+const chatSearch = ref('')
+const chatFilter = ref<'all' | 'unread' | 'whatsapp' | 'web'>('all')
+const chatFilters = [
+  { value: 'all', label: 'Todas' },
+  { value: 'unread', label: 'Sin leer' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'web', label: 'Web' }
+] as const
+
+const filteredChats = computed(() => {
+  const query = chatSearch.value.trim().toLocaleLowerCase('es')
+  return chatStore.activeChats.filter((chat) => {
+    const matchesQuery = !query || `${chat.clientName || ''} ${chat.subject || ''}`.toLocaleLowerCase('es').includes(query)
+    const matchesFilter = chatFilter.value === 'all'
+      || (chatFilter.value === 'unread' && Number(chat.unreadCount || 0) > 0)
+      || (chatFilter.value === 'whatsapp' && chat.channel === 'whatsapp')
+      || (chatFilter.value === 'web' && chat.channel !== 'whatsapp')
+    return matchesQuery && matchesFilter
+  })
 })
 
 function getAttachmentPlaceholder(items: OptimisticAttachment[]) {
   if (!items || items.length === 0) return ''
   const hasAudio = items.some(i => (i.mime_type || '').startsWith('audio/'))
   return hasAudio ? '' : 'Adjunto'
+}
+
+function formatChatTime(value?: Date | string | null): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 function selectChat(chatId: number) {
@@ -439,7 +482,7 @@ async function applyAi(actionId: string) {
     }
   } catch (error) {
     console.error('Error del asistente IA:', error)
-    window.alert(error instanceof Error ? error.message : 'No se pudo procesar el texto con IA.')
+    await appDialog.alert(error instanceof Error ? error.message : 'No se pudo procesar el texto con IA.', { title: 'No se pudo completar' })
   } finally {
     aiBusy.value = false
   }
@@ -578,8 +621,8 @@ function resumeChat() {
   }
 }
 
-function closeCurrentChat() {
-  if (chatStore.currentChatId && confirm('¿Estás seguro de que deseas cerrar este chat?')) {
+async function closeCurrentChat() {
+  if (chatStore.currentChatId && await appDialog.confirm('¿Estás seguro de que deseas cerrar este chat?', { title: 'Cerrar conversación', confirmLabel: 'Cerrar chat' })) {
     chatStore.closeChat(chatStore.currentChatId)
   }
 }
@@ -632,7 +675,7 @@ const attachmentTargetId = computed(() => {
   const mensajes = chatStore.currentMessages
   for (let i = mensajes.length - 1; i >= 0; i -= 1) {
     const mensaje = mensajes[i]
-    if (mensaje && mensaje.senderRole === 'agent') return mensaje.id
+    if (mensaje && isStaffRole(mensaje.senderRole)) return mensaje.id
   }
   return null
 })
@@ -691,7 +734,7 @@ watch(
   () => chatStore.currentMessages[chatStore.currentMessages.length - 1],
   (message) => {
     if (!message) return
-    if (awaitingAttachmentMessage.value && message.senderRole === 'agent') {
+    if (awaitingAttachmentMessage.value && isStaffRole(message.senderRole)) {
       pendingEntityId.value = message.id
       if (pendingOptimistic.value.length > 0) {
         optimisticByMessageId.value = {
@@ -948,6 +991,15 @@ function handleDocumentClick(event: MouseEvent) {
   color: var(--color-success-dark);
 }
 
+.active-status-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px #e8f5e9;
+}
+
 .chat-status.on_hold {
   background: var(--color-warning-soft);
   color: var(--color-warning-dark);
@@ -1008,6 +1060,11 @@ function handleDocumentClick(event: MouseEvent) {
   font-size: 0.8rem;
   color: var(--color-text-muted);
 }
+
+.conversation-subject{margin:3px 0;font-size:.76rem;font-weight:600;color:var(--color-text-soft);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.chat-info{min-width:0}
+.chat-info>div:last-child{min-width:0}
+.channel-context{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:420px}
 
 .chat-controls {
   display: flex;
@@ -1732,12 +1789,15 @@ function handleDocumentClick(event: MouseEvent) {
   line-height: 1;
 }
 .message.own .message-status {
-  color: var(--color-text-on-dark);
-  opacity: 0.75;
+  color: #ffffff;
+  font-weight: 700;
+  opacity: 1;
+  text-shadow: 0 1px 1px rgba(18, 20, 48, 0.45);
 }
 
 .message-status .read {
-  color: var(--color-accent);
+  color: #67e8f9;
+  text-shadow: 0 1px 1px rgba(18, 20, 48, 0.5);
 }
 
 .message:not(.own) .message-status {
@@ -1749,11 +1809,78 @@ function handleDocumentClick(event: MouseEvent) {
 }
 </style>
 
-
-
-
-
-
-
-
-
+<style scoped>
+/* Rediseño de la bandeja inspirado en la referencia entregada */
+.dashboard-container { background: #f4f5f9; }
+.dashboard-content { grid-template-columns: 320px minmax(0, 1fr); gap: 0; padding: 0; }
+.chats-sidebar { border: 0; border-right: 1px solid #e6e7f0; border-radius: 0; }
+.sidebar-header { min-height:0; padding:22px 20px 14px; border-bottom:0; }
+.sidebar-header h3 { font-family:Manrope,Inter,sans-serif; font-size:20px; line-height:1.3; letter-spacing:-.015em; font-weight:700; color:#15172e; }
+.sound-toggle { width: 32px; height: 32px; border-color: #e6e7f0; color: #50536f; }
+.conversation-tools { padding:0 20px 14px; border-bottom:0; }
+.conversation-search { height:auto; display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid #e6e7f0; border-radius:8px; background:#f4f5f9; color:#a2a4bc; }
+.conversation-search :deep(svg) { width:15px; height:15px; flex-shrink:0; }
+.conversation-search input { width:100%; min-width:0; border:0; outline:0; background:transparent; color:#15172e; font:inherit; font-size:13.5px; }
+.conversation-search input::placeholder { color: #a2a4bc; }
+.conversation-filters { display:flex; gap:4px; margin-top:14px; overflow-x:auto; }
+.conversation-filters button { min-height:0; padding:5px 11px; border:0; border-radius:999px; background:transparent; color:#6c6f8d; font-size:12.5px; line-height:1.25; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .15s ease,color .15s ease; }
+.conversation-filters button:hover { border:0; background:#f4f5f9; color:#6c6f8d; }
+.conversation-filters button.active, .conversation-filters button.active:hover { border:0; background:#eeebfd; color:#4238be; }
+.chats-list { padding:2px 10px 12px; }
+.chat-item { display:flex; gap:12px; padding:12px 10px; border:0; border-radius:12px; transition:background .15s ease; }
+.chat-item + .chat-item { border:0; }
+.chat-item:hover { background:#f4f5f9; }
+.chat-item.active, .chat-item.active:hover { background:#eeebfd; border-left:0; }
+.chat-item.on-hold { opacity:1; }
+.conversation-avatar-wrap { position:relative; flex-shrink:0; align-self:flex-start; }
+.conversation-avatar, .header-avatar { display:grid; place-items:center; flex:0 0 auto; border-radius:50%; background:#31356a; color:#fff; font-size:.72rem; font-weight:700; }
+.conversation-avatar { width:34px; height:34px; font-size:13px; font-family:Manrope,Inter,sans-serif; }
+.presence-dot { position:absolute; right:-1px; bottom:-1px; width:9px; height:9px; border:2px solid #fff; border-radius:50%; background:#189c6e; }
+.chat-item.active .presence-dot { border-color:#eeebfd; }
+.conversation-summary { min-width:0; flex:1; }
+.conversation-meta-row { display:flex; align-items:center; gap:6px; margin-top:7px; }
+.conversation-meta-row .unread-badge { margin-left:auto; }
+.department-name { color:#a2a4bc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.chat-item-header { margin-bottom:3px; align-items:baseline; }
+.client-name-text { color:#15172e; font-size:14px; font-weight:600; }
+.conversation-time { flex-shrink:0; color:#a2a4bc; font-size:11.5px; font-weight:400; }
+.last-message { color:#6c6f8d; font-size:13px; margin-bottom:0; }
+.channel-badge { margin-left:0; border:0; border-radius:6px; padding:2px 7px; background:#eeebfd; color:#4238be; }
+.channel-badge.whatsapp { background:#eaf8f0; color:#1a8c4d; }
+.unread-badge { min-width:17px; height:17px; padding:0 5px; margin-left:auto; background:#5849e0; border-radius:999px; font-size:10.5px; }
+.conversation-meta-row .chat-status.on_hold { order:2; margin-left:auto; border-radius:6px; font-size:10.5px; }
+.chat-area { border: 0; border-radius: 0; }
+.chat-header { min-height: 70px; padding: 14px 24px; }
+.chat-info { display:flex; align-items:center; gap:11px; }
+.header-avatar { width:38px; height:38px; font-size:.76rem; }
+.chat-info h2 { font-family: Manrope, Inter, sans-serif; color: #15172e; font-weight: 700; }
+.channel-context { display:block; margin-top:2px; color:#6c6f8d; font-weight:500; }
+.chat-controls button { border: 1px solid #e6e7f0; border-radius: 8px; background: #fff; color: #50536f; }
+.transfer-btn { color: #50536f; }
+.mensajes-container { padding: 24px 28px; background: #f4f5f9; gap: 18px; }
+.message { max-width: 68%; }
+.message.own { align-self: flex-end; }
+.message-avatar { width: 32px; height: 32px; min-width: 32px; font-size: .7rem; background: #31356a !important; }
+.message-avatar.agent { background: #5849e0 !important; }
+.sender-name { color: #6c6f8d !important; }
+.message-bubble { border: 1px solid #e6e7f0; border-radius: 4px 14px 14px 14px; box-shadow: none; line-height: 1.48; }
+.message.own .message-bubble { border: 0; border-radius: 14px 4px 14px 14px; background: #5849e0; }
+.input-area { padding: 14px 24px 16px; gap: 7px; }
+.input-row.primary { align-items:flex-end; padding:7px; border:1px solid #e6e7f0; border-radius:14px; background:#f4f5f9; }
+.input-area .message-input { min-height: 40px; border: 0; background: transparent; font-size: .9rem; }
+.input-area .message-input:focus { border: 0; }
+.mic-btn, .attach-btn, .emoji-btn { width:38px; height:38px; flex:0 0 38px; padding:0; border:0; border-radius:50%; background:transparent; color:#6c6f8d; }
+.mic-btn:hover, .attach-btn:hover, .emoji-btn:hover { background:#e6e7f0; }
+.send-btn { width:40px; height:40px; min-width:40px; padding:0; border:0; border-radius:50%; background:#5849e0; color:#fff; box-shadow:none; display:grid; place-items:center; }
+.send-button-icon { width:18px; height:18px; display:block; overflow:visible; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; transform:translate(-1px, 1px); }
+.send-btn:hover:not(:disabled) { transform:none; background:#4238be; box-shadow:0 5px 14px rgba(88,73,224,.24); }
+.send-btn:active:not(:disabled) { transform:scale(.96); box-shadow:none; }
+.send-btn:disabled { background:#d7d9e7; color:#8e91aa; opacity:1; }
+.input-row.actions { min-height:16px; padding:0 4px; }
+@media (max-width: 768px) {
+  .dashboard-content { gap: 8px; padding: 8px; }
+  .chats-sidebar, .chat-area { border: 1px solid #e6e7f0; border-radius: 12px; }
+  .conversation-tools { padding-bottom: 10px; }
+  .message { max-width: 88%; }
+}
+</style>

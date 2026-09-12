@@ -29,8 +29,11 @@ CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   email VARCHAR(100) UNIQUE,
-  whatsapp_id TEXT UNIQUE,
+  whatsapp_id TEXT,
   password_hash TEXT,
+  identity_provider TEXT,
+  external_user_id TEXT,
+  external_email TEXT,
   role user_role NOT NULL,
   is_online BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -101,7 +104,7 @@ END $$;
 
 -- Add columns for WhatsApp integration (safe for existing databases)
 DO $$ BEGIN
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_id TEXT UNIQUE;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_id TEXT;
 EXCEPTION
   WHEN duplicate_column THEN null;
 END $$;

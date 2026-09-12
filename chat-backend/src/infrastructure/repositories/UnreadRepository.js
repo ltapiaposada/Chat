@@ -90,17 +90,19 @@ class UnreadRepository {
     }));
   }
 
-  async getGlobalUnreadCount(userId) {
+  async getGlobalUnreadCount(userId, companyId) {
     const result = await db.query(
       `
       SELECT COUNT(*) AS unread
       FROM global_messages gm
+      JOIN users u ON u.id = gm.user_id
       LEFT JOIN user_global_reads r
         ON r.user_id = $1
-      WHERE gm.user_id <> $1
+      WHERE u.company_id = $2
+        AND gm.user_id <> $1
         AND gm.created_at > COALESCE(r.last_read_at, '1970-01-01')
       `,
-      [userId]
+      [userId, companyId]
     );
     return Number(result.rows?.[0]?.unread || 0);
   }

@@ -2,6 +2,10 @@
 
 Este documento convierte el analisis del proyecto en un plan ejecutable para llevarlo a un nivel profesional de produccion.
 
+La implementación específica de aislamiento por empresa, canales, asignación de
+agentes e identidad segura del widget se gestiona en
+[`MULTITENANCY_ROADMAP.md`](MULTITENANCY_ROADMAP.md).
+
 ## Como usar este checklist
 
 - Ejecutar el trabajo por fases, de arriba hacia abajo.

@@ -236,9 +236,11 @@ import AiAssistMenu from '@/components/chat/AiAssistMenu.vue'
 import { useQuickPhrases, type QuickPhrase } from '@/composables/useQuickPhrases'
 import { assistText } from '@/services/aiAssist'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
+import { useAppDialog } from '@/composables/useAppDialog'
 
 const authStore = useAuthStore()
 const chatStore = useChatStore()
+const appDialog = useAppDialog()
 
 interface Agent {
   id: number
@@ -440,7 +442,7 @@ async function applyAi(actionId: string) {
     }
   } catch (error) {
     console.error('Error del asistente IA:', error)
-    window.alert(error instanceof Error ? error.message : 'No se pudo procesar el texto con IA.')
+    await appDialog.alert(error instanceof Error ? error.message : 'No se pudo procesar el texto con IA.', { title: 'No se pudo completar' })
   } finally {
     aiBusy.value = false
   }
@@ -1412,7 +1414,6 @@ function handleDocumentClick(event: MouseEvent) {
   }
 }
 </style>
-
 
 
 

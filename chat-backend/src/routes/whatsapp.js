@@ -1,9 +1,11 @@
+const crypto = require('crypto');
 const cloudinary = require('cloudinary').v2;
 const userRepository = require('../infrastructure/repositories/UserRepository');
 const chatRepository = require('../infrastructure/repositories/ChatRepository');
 const messageRepository = require('../infrastructure/repositories/MessageRepository');
+const connectionRepository = require('../infrastructure/repositories/WhatsAppConnectionRepository');
 const socketService = require('../infrastructure/websocket/socket');
-const whatsappService = require('../services/whatsappService');
+const { providerFor } = require('../services/whatsappProvider');
 const { createRateLimit } = require('../plugins/rateLimit');
 
 const webhookVerificationRateLimit = createRateLimit({
@@ -18,273 +20,206 @@ const webhookReceiveRateLimit = createRateLimit({
   errorMessage: 'Too many webhook requests'
 });
 
-function getVerifyToken() {
-  const token = process.env.WHATSAPP_VERIFY_TOKEN;
-  if (!token && process.env.NODE_ENV === 'production') {
-    throw new Error('WHATSAPP_VERIFY_TOKEN is required in production');
-  }
-  return token || 'whatsapp_verify_dev_only';
+function safeEqual(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') return false;
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function validSignature(rawBody, signature, appSecret) {
+  if (!Buffer.isBuffer(rawBody) || !signature || !appSecret) return false;
+  const expected = `sha256=${crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')}`;
+  return safeEqual(expected, signature);
 }
 
 function extractTextMessage(message) {
-  if (!message) return null;
-  if (message.text && message.text.body) return message.text.body;
-  if (message.button && message.button.text) return message.button.text;
-  return null;
-}
-
-function isImageMime(mimeType) {
-  return mimeType && mimeType.startsWith('image/');
+  return message?.text?.body || message?.button?.text || null;
 }
 
 function buildFilename(mediaType, mimeType) {
-  const extension = mimeType?.split('/')[1] || 'bin';
-  return `${mediaType}-${Date.now()}.${extension}`;
+  return `${mediaType}-${Date.now()}.${mimeType?.split('/')[1] || 'bin'}`;
 }
 
-function getMessageContentForMedia(mediaType, caption) {
+function mediaContent(mediaType, caption) {
   if (caption) return caption;
-  if (mediaType === 'audio') return 'Nota de audio';
-  if (mediaType === 'document') return 'Adjunto';
-  if (mediaType === 'image') return 'Imagen';
-  return 'Adjunto';
+  return { audio: 'Nota de audio', document: 'Adjunto', image: 'Imagen' }[mediaType] || 'Adjunto';
 }
 
 function uploadToCloudinary(buffer, resourceType, filename) {
   return new Promise((resolve, reject) => {
-    const upload = cloudinary.uploader.upload_stream(
-      {
-        resource_type: resourceType,
-        folder: 'chat-storage',
-        filename_override: filename,
-        use_filename: true
-      },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
-
+    const upload = cloudinary.uploader.upload_stream({
+      resource_type: resourceType,
+      folder: 'chat-storage',
+      filename_override: filename,
+      use_filename: true
+    }, (error, result) => error ? reject(error) : resolve(result));
     upload.end(buffer);
   });
 }
 
+async function saveInboundMessage({ message, connection, chat, user, replyToId, db }) {
+  const whatsappService = providerFor(connection);
+  const common = {
+    chatId: chat.id,
+    userId: user.id,
+    senderRole: 'client',
+    replyToId,
+    channel: 'whatsapp',
+    externalMessageId: message.id,
+    whatsappConnectionId: connection.id
+  };
+  const text = extractTextMessage(message);
+  if (text) return messageRepository.create({ ...common, content: text });
+
+  if (!['image', 'audio', 'document'].includes(message.type)) return null;
+  const mediaPayload = message[message.type];
+  if (!mediaPayload?.id) return null;
+  const mediaInfo = await whatsappService.getMediaInfo(connection, mediaPayload.id);
+  const mediaBuffer = await whatsappService.downloadMedia(connection, mediaInfo.url);
+  const mimeType = mediaInfo.mime_type || mediaPayload.mime_type || 'application/octet-stream';
+  const resourceType = mimeType.startsWith('image/') ? 'image' : 'raw';
+  const filename = mediaPayload.filename || buildFilename(message.type, mimeType);
+  const saved = await messageRepository.create({
+    ...common,
+    content: mediaContent(message.type, mediaPayload.caption)
+  });
+  const uploadResult = await uploadToCloudinary(mediaBuffer, resourceType, filename);
+  await db.query(
+    `INSERT INTO storage_chat
+      (entity_id, entity_type, url, public_id, resource_type, is_attachment, mime_type, bytes, filename)
+     VALUES ($1, 'chat', $2, $3, $4, $5, $6, $7, $8)`,
+    [saved.id, uploadResult.secure_url, uploadResult.public_id, resourceType,
+      resourceType !== 'image', mimeType, uploadResult.bytes, filename]
+  );
+  return saved;
+}
+
 module.exports = async function whatsappRoutes(fastify) {
   const db = fastify.db || require('../infrastructure/database/postgres');
-  cloudinary.config({
-    cloudinary_url: process.env.CLOUDINARY_URL
+  cloudinary.config({ cloudinary_url: process.env.CLOUDINARY_URL });
+
+  // The exact bytes are required to validate Meta's X-Hub-Signature-256.
+  fastify.removeContentTypeParser('application/json');
+  fastify.addContentTypeParser('application/json', { parseAs: 'buffer' }, (request, body, done) => {
+    request.rawBody = body;
+    try {
+      done(null, JSON.parse(body.toString('utf8')));
+    } catch (error) {
+      error.statusCode = 400;
+      done(error);
+    }
   });
 
-  // Webhook verification (GET)
-  fastify.get('/api/whatsapp/webhook', {
-    preHandler: webhookVerificationRateLimit,
-    schema: {
-      querystring: {
-        type: 'object',
-        additionalProperties: true,
-        required: ['hub.mode', 'hub.verify_token', 'hub.challenge'],
-        properties: {
-          'hub.mode': { type: 'string', minLength: 1, maxLength: 50 },
-          'hub.verify_token': { type: 'string', minLength: 1, maxLength: 255 },
-          'hub.challenge': { type: 'string', minLength: 1, maxLength: 500 }
-        }
-      }
-    }
+  fastify.get('/api/whatsapp/webhook/:webhookKey', {
+    preHandler: webhookVerificationRateLimit
   }, async (request, reply) => {
-    const mode = request.query['hub.mode'];
-    const token = request.query['hub.verify_token'];
-    const challenge = request.query['hub.challenge'];
-
-    if (mode === 'subscribe' && token === getVerifyToken()) {
+    const connection = await connectionRepository.findByWebhookKey(request.params.webhookKey, true);
+    if (connection && request.query['hub.mode'] === 'subscribe' &&
+        safeEqual(request.query['hub.verify_token'], connection.verifyToken)) {
       reply.header('Content-Type', 'text/plain');
-      return reply.send(challenge);
+      return reply.send(request.query['hub.challenge']);
     }
-
     return reply.status(403).send('Forbidden');
   });
 
-  // Webhook receiver (POST)
-  fastify.post('/api/whatsapp/webhook', {
-    preHandler: webhookReceiveRateLimit,
-    schema: {
-      body: {
-        type: 'object',
-        additionalProperties: true,
-        properties: {
-          object: { type: 'string', maxLength: 100 },
-          entry: { type: 'array' }
-        }
-      }
-    }
+  fastify.post('/api/whatsapp/webhook/:webhookKey', {
+    preHandler: webhookReceiveRateLimit
   }, async (request, reply) => {
+    const connection = await connectionRepository.findByWebhookKey(request.params.webhookKey, true);
+    if (!connection || connection.status !== 'active') return reply.status(404).send({ error: 'Not found' });
+    const signature = request.headers['x-hub-signature-256'];
+    if (!validSignature(request.rawBody, signature, connection.appSecret)) {
+      const reason = signature
+        ? 'Meta contactó el webhook, pero la firma no coincide. Verifica la Clave secreta de la aplicación.'
+        : 'Meta contactó el webhook sin una firma de seguridad.';
+      await connectionRepository.touchWebhook(connection.id, reason).catch(() => {});
+      request.log.warn({
+        connectionId: connection.id,
+        hasSignature: Boolean(signature),
+        rawBodyBytes: request.rawBody?.length || 0
+      }, 'whatsapp webhook signature rejected');
+      return reply.status(401).send({ error: 'Invalid webhook signature' });
+    }
+
     try {
-      const body = request.body || {};
-      const entries = body.entry || [];
       const io = socketService.getIO();
-
-      for (const entry of entries) {
-        const changes = entry.changes || [];
-        for (const change of changes) {
+      for (const entry of request.body?.entry || []) {
+        for (const change of entry.changes || []) {
           const value = change.value || {};
-          const contacts = value.contacts || [];
-          const messages = value.messages || [];
-          const statuses = value.statuses || [];
-
-          if (statuses.length > 0) {
-            console.log(
-              '📩 WhatsApp statuses received:',
-              statuses.map(s => ({
-                id: s.id,
-                status: s.status,
-                timestamp: s.timestamp,
-                conversation: s.conversation?.id,
-                recipientId: s.recipient_id,
-                errors: s.errors ? JSON.stringify(s.errors) : undefined
-              }))
-            );
+          if (String(value.metadata?.phone_number_id || '') !== String(connection.phoneNumberId)) {
+            request.log.warn({ connectionId: connection.id }, 'whatsapp phone_number_id mismatch');
+            continue;
           }
 
-          // Handle delivery/read statuses
-          for (const status of statuses) {
-            if (!status?.id) continue;
-            const existing = await messageRepository.findByExternalMessageId(status.id);
+          for (const status of value.statuses || []) {
+            if (!status?.id || !['sent', 'delivered', 'read', 'failed'].includes(status.status)) continue;
+            const existing = await messageRepository.findByExternalMessageId(status.id, connection.id);
             if (!existing) continue;
-            const newStatus = status.status || 'sent';
-            console.log(`✅ WhatsApp status update: ${existing.id} -> ${newStatus}`);
-            await messageRepository.updateStatus(existing.id, newStatus);
-            if (io && existing.chatId) {
+            const updated = await messageRepository.updateStatus(existing.id, status.status);
+            if (updated && io && existing.chatId) {
               io.to(`user:${existing.userId}`).emit('message:status-updated', {
                 chatId: existing.chatId,
                 messageIds: [existing.id],
-                status: newStatus
+                status: updated.status
               });
             }
           }
 
-          // Handle inbound messages
-          for (const message of messages) {
-            const waId = message.from;
-            if (!waId) continue;
+          for (const message of value.messages || []) {
+            if (!message?.id || !message.from) continue;
+            if (await messageRepository.findByExternalMessageId(message.id, connection.id)) continue;
 
-            const name = contacts[0]?.profile?.name || `WhatsApp ${waId}`;
+            const user = await userRepository.findOrCreateWhatsApp({
+              name: value.contacts?.[0]?.profile?.name || `WhatsApp ${message.from}`,
+              whatsappId: message.from,
+              companyId: connection.companyId,
+              channelId: connection.channelId
+            });
 
-            // Find or create user by WhatsApp ID
-            let user = await userRepository.findByWhatsAppId(waId);
-            if (!user) {
-              user = await userRepository.create({
-                name,
-                role: 'client',
-                whatsappId: waId
-              });
-            }
-
-            // Find or create active WhatsApp chat
-            let chat = await chatRepository.findActiveByClientIdAndChannel(user.id, 'whatsapp');
+            let chat = await chatRepository.findActiveByClientIdAndChannel(
+              user.id,
+              'whatsapp',
+              connection.companyId,
+              connection.channelId
+            );
             let isNewChat = false;
             if (!chat) {
               chat = await chatRepository.create({
                 clientId: user.id,
-                subject: 'WhatsApp',
+                companyId: connection.companyId,
+                channelId: connection.channelId,
+                subject: `WhatsApp ${connection.displayPhoneNumber || ''}`.trim(),
                 channel: 'whatsapp'
               });
               isNewChat = true;
             }
 
-            // Handle quoted messages (context)
             let replyToId = null;
-            const contextId = message.context?.id;
-            if (contextId) {
-              const replied = await messageRepository.findByExternalMessageId(contextId);
-              if (replied) {
-                replyToId = replied.id;
-              }
+            if (message.context?.id) {
+              const replied = await messageRepository.findByExternalMessageId(message.context.id, connection.id);
+              replyToId = replied?.chatId === chat.id ? replied.id : null;
             }
 
-            let saved = null;
-            const text = extractTextMessage(message);
-            if (text) {
-              // Save text message
-              saved = await messageRepository.create({
-                chatId: chat.id,
-                userId: user.id,
-                content: text,
-                senderRole: 'client',
-                replyToId,
-                channel: 'whatsapp',
-                externalMessageId: message.id
-              });
-              console.log('📩 WhatsApp inbound saved', {
-                savedId: saved?.id,
-                externalMessageId: message.id,
-                replyToId
-              });
-            } else if (message.type === 'image' || message.type === 'audio' || message.type === 'document') {
-              const mediaPayload = message[message.type];
-              if (!mediaPayload?.id) continue;
-
-              const mediaInfo = await whatsappService.getMediaInfo(mediaPayload.id);
-              const mediaBuffer = await whatsappService.downloadMedia(mediaInfo.url);
-              const mimeType = mediaInfo.mime_type || mediaPayload.mime_type || 'application/octet-stream';
-              const resourceType = isImageMime(mimeType) ? 'image' : 'raw';
-              const filename = mediaPayload.filename || buildFilename(message.type, mimeType);
-              const content = getMessageContentForMedia(message.type, mediaPayload.caption);
-
-              // Create message first
-              saved = await messageRepository.create({
-                chatId: chat.id,
-                userId: user.id,
-                content,
-                senderRole: 'client',
-                replyToId,
-                channel: 'whatsapp',
-                externalMessageId: message.id
-              });
-              console.log('📩 WhatsApp inbound media saved', {
-                savedId: saved?.id,
-                externalMessageId: message.id,
-                mediaType: message.type,
-                replyToId
-              });
-
-              // Upload media to Cloudinary
-              const uploadResult = await uploadToCloudinary(mediaBuffer, resourceType, filename);
-
-              // Store attachment linked to message id
-              await db.query(
-                `INSERT INTO storage_chat 
-                  (entity_id, entity_type, url, public_id, resource_type, is_attachment, mime_type, bytes, filename)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [
-                  saved.id,
-                  'chat',
-                  uploadResult.secure_url,
-                  uploadResult.public_id,
-                  resourceType,
-                  resourceType !== 'image',
-                  mimeType,
-                  uploadResult.bytes,
-                  filename
-                ]
-              );
-            } else {
-              continue;
+            let saved;
+            try {
+              saved = await saveInboundMessage({ message, connection, chat, user, replyToId, db });
+            } catch (error) {
+              if (error.code === '23505') continue;
+              throw error;
             }
+            if (!saved) continue;
+            await chatRepository.touchCustomerMessage(chat.id, connection.companyId);
 
-            // Notify agents if new pending chat
-            if (isNewChat && io) {
-              io.to('agents').emit('chat:new-pending', chat);
+            if (!chat.agentId && io) {
+              const pendingChat = await chatRepository.findById(chat.id, connection.companyId);
+              io.to(`agents:${connection.companyId}:channel:${connection.channelId}`)
+                .emit('chat:new-pending', pendingChat);
             }
-
-            // If chat has assigned agent and agent online, mark delivered
-            if (chat.agentId && io) {
-              const agentSocket = socketService.agents?.get(chat.agentId);
-              if (agentSocket) {
-                await messageRepository.updateStatus(saved.id, 'delivered');
-                saved.status = 'delivered';
-              }
+            if (chat.agentId && io && socketService.agents?.get(chat.agentId)) {
+              await messageRepository.updateStatus(saved.id, 'delivered');
+              saved.status = 'delivered';
             }
-
-            // Emit to agent and (if connected) to client room
             if (io) {
               if (chat.agentId) {
                 io.to(`user:${chat.agentId}`).emit('message:new', saved);
@@ -296,11 +231,14 @@ module.exports = async function whatsappRoutes(fastify) {
           }
         }
       }
-
+      await connectionRepository.touchWebhook(connection.id);
       return reply.send({ status: 'ok' });
     } catch (error) {
-      request.log.error({ err: error }, 'whatsapp webhook error');
+      await connectionRepository.touchWebhook(connection.id, error.message).catch(() => {});
+      request.log.error({ err: error, connectionId: connection.id }, 'whatsapp webhook error');
       return reply.status(500).send({ error: 'Webhook error' });
     }
   });
 };
+
+module.exports.validSignature = validSignature;

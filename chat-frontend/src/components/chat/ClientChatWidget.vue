@@ -20,6 +20,16 @@
           </span>
         </div>
         <div class="header-actions">
+          <UiTooltip text="Mis chats">
+            <button
+              class="sound-toggle"
+              type="button"
+              aria-label="Mis chats"
+              @click="$emit('openHistory')"
+            >
+              <HeroIcon name="clipboard-document-list" />
+            </button>
+          </UiTooltip>
           <UiTooltip :text="chatStore.soundEnabled ? 'Silenciar sonido' : 'Activar sonido'">
             <button
               class="sound-toggle"
@@ -42,6 +52,15 @@
             <span class="prompt-icon"><HeroIcon name="face-smile" /></span>
             <h3>¡Hola {{ authStore.name }}!</h3>
             <p>¿En qué podemos ayudarte?</p>
+
+            <div v-if="chatStore.departments.length" class="department-input">
+              <select v-model.number="selectedDepartmentId" aria-label="Área de atención">
+                <option :value="null">Selecciona un área</option>
+                <option v-for="department in chatStore.departments" :key="department.id" :value="department.id">
+                  {{ department.name }}
+                </option>
+              </select>
+            </div>
             
             <div class="subject-input">
               <input
@@ -60,8 +79,8 @@
             <div v-if="chatStore.clientChatHistory.length > 0" class="history-section">
               <h4><HeroIcon name="document-text" /> Anteriores</h4>
               <div class="history-list">
-                <div 
-                  v-for="chat in chatStore.clientChatHistory.slice(0, 3)" 
+                <div
+                  v-for="chat in visibleHistory"
                   :key="chat.id" 
                   class="history-item"
                   @click="viewHistoryChat(chat.id)"
@@ -69,6 +88,14 @@
                   <span class="history-subject">{{ chat.subject || 'Soporte' }}</span>
                   <span class="history-date">{{ formatDate(chat.createdAt) }}</span>
                 </div>
+                <button
+                  v-if="chatStore.clientChatHistory.length > 3"
+                  class="all-history-btn"
+                  type="button"
+                  @click="showAllHistory = !showAllHistory"
+                >
+                  {{ showAllHistory ? 'Mostrar menos' : `Mis chats (${chatStore.clientChatHistory.length})` }}
+                </button>
               </div>
             </div>
           </div>
@@ -89,13 +116,13 @@
               :class="{ own: message.senderRole === 'client' }"
             >
               <!-- Avatar -->
-              <div class="message-avatar" :class="message.senderRole" :title="message.senderRole === 'agent' ? (message.senderName || 'Agente') : authStore.name">
-                {{ message.senderRole === 'agent' ? getInitials(message.senderName) : getInitials(authStore.name) }}
+              <div class="message-avatar" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'" :title="isStaffRole(message.senderRole) ? (message.senderName || 'Agente') : authStore.name">
+                {{ isStaffRole(message.senderRole) ? getInitials(message.senderName) : getInitials(authStore.name) }}
               </div>
               <div class="message-content">
                 <!-- Nombre -->
-                <span class="sender-name" :class="message.senderRole">
-                  {{ message.senderRole === 'agent' ? (message.senderName || 'Agente') : 'Tú' }}
+                <span class="sender-name" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'">
+                  {{ isStaffRole(message.senderRole) ? (message.senderName || 'Agente') : 'Tú' }}
                 </span>
                 <div class="message-bubble">
                   <p>{{ message.content }}</p>
@@ -142,13 +169,13 @@
               :class="{ own: message.senderRole === 'client' }"
             >
               <!-- Avatar -->
-              <div class="message-avatar" :class="message.senderRole" :title="message.senderRole === 'agent' ? (message.senderName || 'Agente') : authStore.name">
-                {{ message.senderRole === 'agent' ? getInitials(message.senderName) : getInitials(authStore.name) }}
+              <div class="message-avatar" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'" :title="isStaffRole(message.senderRole) ? (message.senderName || 'Agente') : authStore.name">
+                {{ isStaffRole(message.senderRole) ? getInitials(message.senderName) : getInitials(authStore.name) }}
               </div>
               <div class="message-content">
                 <!-- Nombre -->
-                <span class="sender-name" :class="message.senderRole">
-                  {{ message.senderRole === 'agent' ? (message.senderName || 'Agente') : 'Tú' }}
+                <span class="sender-name" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'">
+                  {{ isStaffRole(message.senderRole) ? (message.senderName || 'Agente') : 'Tú' }}
                 </span>
                 <div class="message-bubble">
                   <!-- Reply preview -->
@@ -314,6 +341,8 @@ import SatisfactionSurvey from '@/components/SatisfactionSurvey.vue'
 import EmojiMartPicker from '@/components/chat/EmojiMartPicker.vue'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
 import UiTooltip from '@/components/ui/UiTooltip.vue'
+import { useAppDialog } from '@/composables/useAppDialog'
+import { isStaffRole } from '@/utils/chatRoles'
 
 defineProps<{
   isOpen: boolean
@@ -321,16 +350,20 @@ defineProps<{
 
 defineEmits<{
   close: []
+  openHistory: []
 }>()
 
 const authStore = useAuthStore()
 const chatStore = useChatStore()
+const appDialog = useAppDialog()
 
 const subject = ref('')
+const selectedDepartmentId = ref<number | null>(null)
 const messageInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const viewingHistory = ref(false)
 const historyChat = ref<any>(null)
+const showAllHistory = ref(false)
 const inputElement = ref<HTMLInputElement | null>(null)
 const attachmentsRef = ref<any>(null)
 const queuedCount = ref(0)
@@ -369,9 +402,16 @@ const connectionText = computed(() => {
   return 'En línea'
 })
 
+const visibleHistory = computed(() => {
+  return showAllHistory.value
+    ? chatStore.clientChatHistory
+    : chatStore.clientChatHistory.slice(0, 3)
+})
+
 onMounted(() => {
   if (authStore.isAuthenticated && authStore.role === 'client') {
     chatStore.getClientHistory()
+    chatStore.getDepartments()
     
     if (chatStore.clientChat && chatStore.clientChat.status !== 'closed') {
       chatStore.selectChat(chatStore.clientChat.id)
@@ -388,14 +428,16 @@ onBeforeUnmount(() => {
 
 function startNewChat() {
   if (!subject.value.trim()) return
-  chatStore.startChat(subject.value)
+  chatStore.startChat(subject.value, selectedDepartmentId.value)
   subject.value = ''
+  selectedDepartmentId.value = null
 }
 
 function startNewChatAfterClosed() {
   chatStore.clearActiveClientChat()
   chatStore.getClientHistory()
   subject.value = ''
+  selectedDepartmentId.value = null
 }
 
 function viewHistoryChat(chatId: number) {
@@ -407,10 +449,12 @@ function viewHistoryChat(chatId: number) {
   }
 }
 
+
 function closeHistoryView() {
   viewingHistory.value = false
   historyChat.value = null
-  chatStore.currentChatId = null
+  if (chatStore.clientChat) chatStore.selectChat(chatStore.clientChat.id)
+  else chatStore.currentChatId = null
 }
 
 function sendMessage() {
@@ -470,8 +514,8 @@ function handleDragLeave() {
   }
 }
 
-function endChat() {
-  if (confirm('¿Finalizar la conversación?')) {
+async function endChat() {
+  if (await appDialog.confirm('¿Finalizar la conversación?', { title: 'Finalizar conversación', confirmLabel: 'Finalizar' })) {
     chatStore.clientEndChat()
   }
 }
@@ -753,7 +797,8 @@ function handleDocumentClick(event: MouseEvent) {
   font-size: 0.9rem;
 }
 
-.subject-input input {
+.subject-input input,
+.department-input select {
   width: 100%;
   padding: 0.75rem 1rem;
   border: 2px solid var(--color-border);
@@ -762,10 +807,13 @@ function handleDocumentClick(event: MouseEvent) {
   margin-bottom: 0.75rem;
 }
 
-.subject-input input:focus {
+.subject-input input:focus,
+.department-input select:focus {
   outline: none;
   border-color: var(--color-primary);
 }
+
+.department-input { width: 100%; margin-bottom: .65rem; }
 
 .start-btn {
   padding: 0.75rem 1.5rem;
@@ -830,6 +878,45 @@ function handleDocumentClick(event: MouseEvent) {
   font-size: 0.7rem;
   color: var(--color-text-subtle);
 }
+
+.all-history-btn {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--color-primary-border);
+  border-radius: 9px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.embedded-history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.embedded-history-card {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.embedded-history-card:hover { border-color: var(--color-primary-border); background: var(--color-primary-soft); }
+.embedded-history-card small { color: var(--color-text-muted); }
+.embedded-history-empty { margin: auto; padding: 24px; color: var(--color-text-muted); text-align: center; }
 
 .chat-content {
   flex: 1;
@@ -1551,21 +1638,14 @@ function handleDocumentClick(event: MouseEvent) {
   line-height: 1;
 }
 .message.own .message-status {
-  color: var(--color-text-on-dark);
-  opacity: 0.75;
+  color: #ffffff;
+  font-weight: 700;
+  opacity: 1;
+  text-shadow: 0 1px 1px rgba(18, 20, 48, 0.45);
 }
 
 .message-status .read {
-  color: var(--color-accent);
+  color: #67e8f9;
+  text-shadow: 0 1px 1px rgba(18, 20, 48, 0.5);
 }
 </style>
-
-
-
-
-
-
-
-
-
-

@@ -1,54 +1,39 @@
 <template>
   <div class="pending-container">
     <div class="pending-content">
-      <div class="section-header">
-        <h2><HeroIcon name="clipboard-document-list" /> Chats Pendientes</h2>
-        <div class="header-actions">
+      <div class="section-head">
+        <div>
+          <p>{{ chatStore.pendingChats.length }} {{ chatStore.pendingChats.length === 1 ? 'conversación esperando asignación' : 'conversaciones esperando asignación' }}</p>
+        </div>
+        <div class="head-actions">
           <UiTooltip :text="chatStore.soundByType.pending ? 'Silenciar sonido' : 'Activar sonido'">
-            <button
-              class="sound-toggle"
-              type="button"
-              @click="chatStore.toggleSoundType('pending')"
-            >
+            <button class="icon-btn" :class="{ active: chatStore.soundByType.pending }" type="button" :aria-label="chatStore.soundByType.pending ? 'Silenciar sonido' : 'Activar sonido'" :aria-pressed="chatStore.soundByType.pending" @click="chatStore.toggleSoundType('pending')">
               <HeroIcon :name="chatStore.soundByType.pending ? 'speaker-wave' : 'speaker-x-mark'" />
             </button>
           </UiTooltip>
-          <button class="refresh-btn" @click="refreshPendingChats">
-            <HeroIcon name="arrow-path" />
-            Actualizar
-          </button>
+          <button class="refresh-btn" type="button" @click="refreshPendingChats"><HeroIcon name="arrow-path" />Actualizar</button>
         </div>
       </div>
 
-      <div v-if="chatStore.pendingChats.length === 0" class="empty-state">
-        <span class="empty-icon"><HeroIcon name="inbox" /></span>
-        <h3>No hay chats pendientes</h3>
-        <p>Todos los clientes han sido atendidos</p>
-      </div>
-
-      <div v-else class="pending-list">
-        <div 
-          v-for="chat in chatStore.pendingChats" 
-          :key="chat.id"
-          class="pending-card"
-        >
-          <div class="card-header">
-            <span class="client-name"><HeroIcon name="user" /> {{ chat.clientName || `Cliente #${chat.clientId}` }}</span>
-            <span v-if="chat.channel === 'whatsapp'" class="channel-badge">WhatsApp</span>
-            <span class="wait-time">{{ formatWaitTime(chat.createdAt) }}</span>
+      <div class="queue">
+        <div v-if="!chatStore.pendingChats.length" class="empty-state">
+          <HeroIcon name="inbox" />
+          <h3>No hay chats pendientes</h3>
+          <p>Todos los clientes han sido atendidos</p>
+        </div>
+        <div v-for="chat in chatStore.pendingChats" :key="chat.id" class="queue-row">
+          <div class="avatar">{{ initials(chat.clientName) }}</div>
+          <div class="row-body">
+            <div class="top-line">
+              <span class="client-name">{{ chat.clientName || `Cliente #${chat.clientId}` }}</span>
+              <span v-if="chat.departmentName" class="department" :class="departmentClass(chat.departmentName)"><span class="dot" />{{ chat.departmentName }}</span>
+              <span v-if="chat.channel === 'whatsapp'" class="whatsapp">WhatsApp</span>
+            </div>
+            <p class="message-preview" :title="chat.lastMessage || chat.subject">{{ chat.lastMessage || (chat.channel !== 'whatsapp' ? chat.subject : '') || 'Sin mensajes' }}</p>
           </div>
-          
-          <div class="card-body">
-            <p class="subject">{{ chat.subject || 'Sin asunto' }}</p>
-            <p v-if="chat.lastMessage" class="last-message">
-              "{{ truncateMessage(chat.lastMessage) }}"
-            </p>
-          </div>
-
-          <div class="card-actions">
-            <button class="assign-btn" @click="assignChat(chat.id)">
-              Tomar chat
-            </button>
+          <div class="row-meta">
+            <span class="wait" :class="waitClass(chat.createdAt)"><HeroIcon name="clock" />{{ formatWaitTime(chat.createdAt) }}</span>
+            <button class="take-btn" type="button" @click="assignChat(chat.id)">Tomar chat</button>
           </div>
         </div>
       </div>
@@ -57,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
@@ -65,232 +50,56 @@ import UiTooltip from '@/components/ui/UiTooltip.vue'
 
 const router = useRouter()
 const chatStore = useChatStore()
-
-let refreshInterval: number | null = null
-
+const now = ref(Date.now())
+let refreshInterval: ReturnType<typeof setInterval> | undefined
 onMounted(() => {
   chatStore.getPendingChats()
-  
-  // Auto-refresh every 10 seconds
-  refreshInterval = window.setInterval(() => {
-    chatStore.getPendingChats()
-  }, 10000)
+  refreshInterval = setInterval(() => { now.value = Date.now(); chatStore.getPendingChats() }, 10000)
 })
-
-onUnmounted(() => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-  }
-})
-
-function refreshPendingChats() {
-  chatStore.getPendingChats()
-}
-
-function assignChat(chatId: number) {
-  chatStore.assignChat(chatId)
-  router.push('/agent/dashboard')
-}
-
-function formatWaitTime(createdAt: Date): string {
-  const now = new Date()
-  const created = new Date(createdAt)
-  const diffMs = now.getTime() - created.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  
-  if (diffMins < 1) return 'Ahora'
-  if (diffMins < 60) return `Hace ${diffMins} min`
-  
-  const diffHours = Math.floor(diffMins / 60)
-  return `Hace ${diffHours}h`
-}
-
-function truncateMessage(message: string): string {
-  return message.length > 80 ? message.substring(0, 80) + '...' : message
-}
+onUnmounted(() => clearInterval(refreshInterval))
+function refreshPendingChats() { now.value = Date.now(); chatStore.getPendingChats() }
+function assignChat(chatId: number) { chatStore.assignChat(chatId); router.push('/agent/dashboard') }
+function initials(name?: string) { return (name || 'Cliente').trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() }
+function waitMinutes(createdAt: Date) { const time = new Date(createdAt).getTime(); return Number.isFinite(time) ? Math.max(0, Math.floor((now.value - time) / 60000)) : 0 }
+function waitClass(createdAt: Date) { const minutes = waitMinutes(createdAt); return minutes >= 10 ? 'urgent' : minutes >= 5 ? 'warn' : 'normal' }
+function formatWaitTime(createdAt: Date) { const minutes = waitMinutes(createdAt); return minutes < 1 ? 'Ahora' : minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ''}` }
+function departmentClass(name: string) { const text = name.toLocaleLowerCase('es'); return text.includes('venta') ? 'sales' : text.includes('factura') ? 'billing' : 'support' }
 </script>
 
 <style scoped>
-.pending-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--color-bg);
-  overflow-y: auto;
-}
-
-.pending-content {
-  flex: 1;
-  padding: 1.5rem;
-  max-width: 900px;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.sound-toggle {
-  border: 1px solid var(--color-border-strong);
-  background: white;
-  color: var(--color-primary);
-  border-radius: 50%;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.sound-toggle:hover {
-  background: var(--color-primary-soft);
-  border-color: var(--color-primary-border);
-}
-
-.section-header h2 {
-  margin: 0;
-  color: var(--color-text);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.refresh-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border-soft);
-  border-radius: 6px;
-  background: white;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.refresh-btn:hover {
-  background: var(--color-surface-muted);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.empty-icon {
-  font-size: 4rem;
-}
-
-.empty-state h3 {
-  margin: 1rem 0 0.5rem;
-  color: var(--color-text);
-}
-
-.empty-state p {
-  color: var(--color-text-muted);
-}
-
-.pending-list {
-  display: grid;
-  gap: 1rem;
-}
-
-.pending-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.25rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.pending-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.channel-badge {
-  margin-left: 0.5rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
-  font-size: 0.65rem;
-  font-weight: 600;
-  background: var(--color-info-soft-2);
-  color: var(--color-info-strong);
-  border: 1px solid var(--color-info-border);
-}
-
-.client-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.wait-time {
-  font-size: 0.75rem;
-  color: var(--color-warning);
-  background: var(--color-warning-soft);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-}
-
-.card-body {
-  margin-bottom: 1rem;
-}
-
-.subject {
-  margin: 0 0 0.5rem;
-  color: var(--color-text);
-  font-weight: 500;
-}
-
-.last-message {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-  font-style: italic;
-}
-
-.card-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.assign-btn {
-  padding: 0.625rem 1.25rem;
-  border: none;
-  border-radius: 6px;
-  background: var(--color-primary);
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.assign-btn:hover {
-  background: var(--color-primary-2);
-}
+.pending-container{height:100%;overflow-y:auto;background:#f4f5fa;color:#14141f}
+.pending-content{max-width:908px;width:100%;margin:0 auto;padding:48px 24px}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:22px}
+.section-head p{margin:0;font-size:13.5px;color:#5b5f73}
+.head-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.icon-btn{width:36px;height:36px;padding:0;border-radius:10px;border:1px solid #e7e8f0;background:#fff;display:flex;align-items:center;justify-content:center;color:#5b5f73;cursor:pointer}
+.icon-btn.active{color:#4338ca;border-color:#eef0ff;background:#eef0ff}
+.icon-btn svg{width:16px;height:16px}
+.refresh-btn{height:36px;padding:0 14px 0 12px;border-radius:10px;border:1px solid #e7e8f0;background:#fff;display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:#14141f;cursor:pointer}
+.refresh-btn svg{width:14px;height:14px}
+.icon-btn:hover,.refresh-btn:hover{background:#f5f5fb}
+.queue{background:#fff;border:1px solid #e7e8f0;border-radius:16px;overflow:hidden}
+.queue-row{display:flex;align-items:stretch;padding:18px 22px;border-bottom:1px solid #e7e8f0;transition:background .15s ease}
+.queue-row:last-child{border-bottom:0}
+.queue-row:hover{background:#f0effb}
+.queue-row:hover .avatar{background:#e4e0fc}
+.avatar{transition:background .15s ease}
+.queue-row:focus-within{background:#f0effb}
+.avatar{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;margin-right:16px;background:#eef0ff;color:#4338ca}
+.row-body{flex:1;min-width:0}
+.top-line{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:5px}
+.client-name{font-weight:600;font-size:15px;color:#14141f;overflow-wrap:anywhere}
+.department{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#5b5f73}
+.dot{width:6px;height:6px;border-radius:50%;background:#2563eb;flex-shrink:0}
+.sales .dot{background:#7c3aed}.billing .dot{background:#0d9488}
+.whatsapp{padding:2px 6px;border-radius:5px;background:#eaf8f1;color:#117a56;font-size:11px;font-weight:600}
+.message-preview{margin:0;font-size:14px;color:#5b5f73;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-meta{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;margin-left:20px;flex-shrink:0;gap:12px}
+.wait{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.wait.normal{color:#2f9e6e}.wait.warn{color:#b45309}.wait.urgent{color:#c0362c}.wait svg{width:13px;height:13px}
+.take-btn{height:36px;padding:0 16px;border-radius:9px;border:0;background:#4338ca;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s ease}
+.take-btn:hover{background:#372fb0}
+button:focus-visible{outline:2px solid #4338ca;outline-offset:3px}
+.empty-state{text-align:center;padding:56px 24px}.empty-state>svg{width:42px;height:42px;color:#9497aa}.empty-state h3{margin:14px 0 6px;font-size:16px}.empty-state p{font-size:13.5px;color:#5b5f73}
+@media(max-width:600px){.pending-content{padding:24px 16px}.section-head{align-items:flex-start;flex-wrap:wrap;gap:14px}.queue-row{padding:16px 14px;flex-wrap:wrap}.avatar{margin-right:12px}.row-meta{width:100%;margin:12px 0 0 54px;flex-direction:row;align-items:center}.top-line{gap:6px 10px}}
 </style>
-
-
-

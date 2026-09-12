@@ -5,7 +5,7 @@ import { useAuthStore } from './auth'
 import { createCollaborationActions, registerCollaborationListeners } from './chatCollaboration'
 import { createChatNotifications } from './chatNotifications'
 import { createSupportActions, registerSupportListeners } from './chatSupport'
-import type { Agent, Chat, DirectMessage, GroupChat, GroupMember, GroupMessage, Message } from './chatTypes'
+import type { Agent, Chat, DirectMessage, GroupChat, GroupMember, GroupMessage, Message, SupportDepartment } from './chatTypes'
 export type {
   Agent,
   Chat,
@@ -15,7 +15,8 @@ export type {
   GroupMember,
   GroupMessage,
   Message,
-  MessageStatus
+  MessageStatus,
+  SupportDepartment
 } from './chatTypes'
 
 export const useChatStore = defineStore('chat', () => {
@@ -29,6 +30,7 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref<Map<number, Message[]>>(new Map())
   const typingUsers = ref<Set<number>>(new Set())
   const availableAgents = ref<Agent[]>([])
+  const departments = ref<SupportDepartment[]>([])
   const replyingToMessage = ref<Message | null>(null)
   const agentChatHistory = ref<Chat[]>([])
   const showSurvey = ref(false)
@@ -113,6 +115,7 @@ export const useChatStore = defineStore('chat', () => {
     updateChatStatus,
     selectChat,
     getClientHistory,
+    getDepartments,
     startChat,
     viewChat,
     clientSendMessage,
@@ -179,7 +182,7 @@ export const useChatStore = defineStore('chat', () => {
       console.log('Autenticado:', data)
       
       // Cargar datos según el rol del usuario despu�s de autenticación
-      if (authStore.role === 'agent') {
+      if (authStore.isStaff) {
         // Cargar chats asignados al agente
         socketService.emit('agent:get-my-chats')
         // Cargar chats pendientes
@@ -193,6 +196,7 @@ export const useChatStore = defineStore('chat', () => {
       } else if (authStore.role === 'client') {
         // Cargar historial del cliente
         socketService.emit('client:get-history')
+        socketService.emit('client:get-departments')
       }
     })
 
@@ -204,6 +208,7 @@ export const useChatStore = defineStore('chat', () => {
       messages,
       typingUsers,
       availableAgents,
+      departments,
       agentChatHistory,
       showSurvey,
       surveySubmitted,
@@ -307,6 +312,7 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = new Map()
     typingUsers.value = new Set()
     availableAgents.value = []
+    departments.value = []
     replyingToMessage.value = null
     agentChatHistory.value = []
     showSurvey.value = false
@@ -341,6 +347,7 @@ export const useChatStore = defineStore('chat', () => {
     messages,
     typingUsers,
     availableAgents,
+    departments,
     replyingToMessage,
     agentChatHistory,
     showSurvey,
@@ -378,6 +385,7 @@ export const useChatStore = defineStore('chat', () => {
     
     // Client actions
     getClientHistory,
+    getDepartments,
     startChat,
     viewChat,
     clientSendMessage,

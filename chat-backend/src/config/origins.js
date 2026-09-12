@@ -24,6 +24,19 @@ function isAllowedOrigin(origin) {
     return true;
   }
 
+  if (String(process.env.NODE_ENV).toLowerCase() !== 'production') {
+    try {
+      const parsed = new URL(origin);
+      const configuredPorts = new Set(allowedOrigins.map((value) => new URL(value).port));
+      const localHost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' ||
+        parsed.hostname === '0.0.0.0' || parsed.hostname.startsWith('192.168.') ||
+        parsed.hostname.startsWith('10.');
+      if (parsed.protocol === 'http:' && localHost && configuredPorts.has(parsed.port)) return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   const allowVercelPreviews = String(process.env.ALLOW_VERCEL_PREVIEWS || '')
     .toLowerCase()
     .trim();
@@ -45,7 +58,9 @@ function createCorsOriginValidator() {
       callback(null, true);
       return;
     }
-    callback(new Error(`Origin not allowed by CORS: ${origin}`), false);
+    const error = new Error(`Origin not allowed by CORS: ${origin}`);
+    error.statusCode = 403;
+    callback(error, false);
   };
 }
 

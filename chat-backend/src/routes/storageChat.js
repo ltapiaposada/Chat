@@ -8,7 +8,8 @@ const { spawn } = require('child_process');
 const messageRepository = require('../infrastructure/repositories/MessageRepository');
 const chatRepository = require('../infrastructure/repositories/ChatRepository');
 const userRepository = require('../infrastructure/repositories/UserRepository');
-const whatsappService = require('../services/whatsappService');
+const whatsappConnectionRepository = require('../infrastructure/repositories/WhatsAppConnectionRepository');
+const { providerFor } = require('../services/whatsappProvider');
 const socketService = require('../infrastructure/websocket/socket');
 const {
   authenticateRequest,
@@ -334,6 +335,14 @@ module.exports = async function storageChatRoutes(fastify) {
         chat = access.chat;
         if (chat.channel === 'whatsapp' && message.senderRole === 'agent') {
           isWhatsAppAgentAttachment = true;
+          const lastCustomerMessage = chat.lastCustomerMessageAt
+            ? new Date(chat.lastCustomerMessageAt).getTime()
+            : 0;
+          if (!lastCustomerMessage || Date.now() - lastCustomerMessage > 24 * 60 * 60 * 1000) {
+            return reply.status(409).send({
+              error: 'La ventana de atención de WhatsApp terminó. Debes usar una plantilla aprobada.'
+            });
+          }
         }
       } else {
         return reply.status(403).send({ error: 'Unsupported entity type' });
@@ -439,6 +448,13 @@ module.exports = async function storageChatRoutes(fastify) {
       if (entityType === 'chat' && isWhatsAppAgentAttachment && message && chat) {
         const client = await userRepository.findById(chat.clientId);
         if (client?.whatsapp_id) {
+          const connection = await whatsappConnectionRepository.findByChannelId(
+            chat.channelId, chat.companyId, true
+          );
+          if (!connection || connection.status !== 'active') {
+            return reply.status(409).send({ error: 'El canal de WhatsApp no está activo' });
+          }
+          const whatsappService = providerFor(connection);
           const replyExternalId = message.replyToId
             ? (await messageRepository.findById(message.replyToId))?.externalMessageId
             : null;
@@ -474,22 +490,22 @@ module.exports = async function storageChatRoutes(fastify) {
                 // If there's text, send it as a separate message (replying if needed),
                 // then send the voice note. This matches the requested UX.
                 if (captionText) {
-                  const textExternalId = await whatsappService.sendText({
+                  const textExternalId = await whatsappService.sendText(connection, {
                     to: client.whatsapp_id,
                     text: captionText,
                     replyToMessageId: replyExternalId || null
                   });
                   if (textExternalId) {
-                    await messageRepository.updateExternalMessageId(message.id, textExternalId);
+                    await messageRepository.updateExternalMessageId(message.id, textExternalId, connection.id);
                   }
                 } else if (replyExternalId) {
-                  const textExternalId = await whatsappService.sendText({
+                  const textExternalId = await whatsappService.sendText(connection, {
                     to: client.whatsapp_id,
                     text: 'Nota de audio',
                     replyToMessageId: replyExternalId
                   });
                   if (textExternalId) {
-                    await messageRepository.updateExternalMessageId(message.id, textExternalId);
+                    await messageRepository.updateExternalMessageId(message.id, textExternalId, connection.id);
                   }
                 }
 
@@ -504,21 +520,21 @@ module.exports = async function storageChatRoutes(fastify) {
                   { bytes: audioBuffer.length, mimeType: waMimeType },
                   'whatsapp audio: uploading to media endpoint'
                 );
-                const mediaId = await whatsappService.uploadMedia({
+                const mediaId = await whatsappService.uploadMedia(connection, {
                   buffer: audioBuffer,
                   mimeType: waMimeType,
                   filename: storedFilename
                 });
                 if (mediaId) {
                   request.log.info({ mediaId }, 'whatsapp audio: media uploaded');
-                  const externalId = await whatsappService.sendAudioById({
+                  const externalId = await whatsappService.sendAudioById(connection, {
                     to: client.whatsapp_id,
                     mediaId,
                     replyToMessageId: null,
                     voice: true
                   });
                   if (externalId) {
-                    await messageRepository.updateExternalMessageId(message.id, externalId);
+                    await messageRepository.updateExternalMessageId(message.id, externalId, connection.id);
                   }
                   request.log.info({ mediaId }, 'whatsapp audio: sent by id');
                 } else {
@@ -530,7 +546,7 @@ module.exports = async function storageChatRoutes(fastify) {
                   'whatsapp audio upload failed, fallback to link'
                 );
                 const waUrl = buildPublicMediaUrl(uploadResult, resourceType, filename, mimeType);
-                const externalId = await whatsappService.sendMedia({
+                const externalId = await whatsappService.sendMedia(connection, {
                   to: client.whatsapp_id,
                   type: mediaType,
                   url: waUrl,
@@ -538,12 +554,12 @@ module.exports = async function storageChatRoutes(fastify) {
                   replyToMessageId: null
                 });
                 if (externalId) {
-                  await messageRepository.updateExternalMessageId(message.id, externalId);
+                  await messageRepository.updateExternalMessageId(message.id, externalId, connection.id);
                 }
               }
             } else {
               const waUrl = buildPublicMediaUrl(uploadResult, resourceType, filename, mimeType);
-              const externalId = await whatsappService.sendMedia({
+              const externalId = await whatsappService.sendMedia(connection, {
                 to: client.whatsapp_id,
                 type: mediaType,
                 url: waUrl,
@@ -552,7 +568,7 @@ module.exports = async function storageChatRoutes(fastify) {
                 replyToMessageId: replyExternalId || null
               });
               if (externalId) {
-                await messageRepository.updateExternalMessageId(message.id, externalId);
+                await messageRepository.updateExternalMessageId(message.id, externalId, connection.id);
               }
             }
           } catch (waError) {

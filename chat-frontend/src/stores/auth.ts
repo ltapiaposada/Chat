@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 
-export type UserRole = 'client' | 'agent'
+export type UserRole = 'client' | 'agent' | 'supervisor' | 'admin'
 
 interface AuthState {
   userId: number | null
@@ -18,6 +18,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => userId.value !== null && role.value !== null && !!token.value)
   const isAgent = computed(() => role.value === 'agent')
+  const isStaff = computed(() => ['agent', 'supervisor', 'admin'].includes(role.value || ''))
+  const isAdmin = computed(() => role.value === 'admin')
   const isClient = computed(() => role.value === 'client')
 
   function login(id: number, userName: string, userRole: UserRole, authToken: string) {
@@ -66,6 +68,8 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     isAuthenticated,
     isAgent,
+    isStaff,
+    isAdmin,
     isClient,
     login,
     logout,

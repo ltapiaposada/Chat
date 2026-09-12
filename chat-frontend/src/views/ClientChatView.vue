@@ -93,13 +93,13 @@
             :class="{ own: message.senderRole === 'client' }"
           >
             <!-- Avatar -->
-            <div class="message-avatar" :class="message.senderRole" :title="message.senderRole === 'agent' ? (message.senderName || 'Agente') : authStore.name">
-              {{ message.senderRole === 'agent' ? getInitials(message.senderName) : getInitials(authStore.name) }}
+            <div class="message-avatar" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'" :title="isStaffRole(message.senderRole) ? (message.senderName || 'Agente') : authStore.name">
+              {{ isStaffRole(message.senderRole) ? getInitials(message.senderName) : getInitials(authStore.name) }}
             </div>
             <div class="message-content">
               <!-- Nombre -->
-              <span class="sender-name" :class="message.senderRole">
-                {{ message.senderRole === 'agent' ? (message.senderName || 'Agente') : 'Tú' }}
+              <span class="sender-name" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'">
+                {{ isStaffRole(message.senderRole) ? (message.senderName || 'Agente') : 'Tú' }}
               </span>
               <div class="message-bubble">
                 <p v-if="message.content && message.content.trim()">{{ message.content }}</p>
@@ -152,13 +152,13 @@
             :class="{ own: message.senderRole === 'client' }"
           >
             <!-- Avatar -->
-            <div class="message-avatar" :class="message.senderRole" :title="message.senderRole === 'agent' ? (message.senderName || 'Agente') : authStore.name">
-              {{ message.senderRole === 'agent' ? getInitials(message.senderName) : getInitials(authStore.name) }}
+            <div class="message-avatar" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'" :title="isStaffRole(message.senderRole) ? (message.senderName || 'Agente') : authStore.name">
+              {{ isStaffRole(message.senderRole) ? getInitials(message.senderName) : getInitials(authStore.name) }}
             </div>
             <div class="message-content">
               <!-- Nombre -->
-              <span class="sender-name" :class="message.senderRole">
-                {{ message.senderRole === 'agent' ? (message.senderName || 'Agente') : 'Tú' }}
+              <span class="sender-name" :class="isStaffRole(message.senderRole) ? 'agent' : 'client'">
+                {{ isStaffRole(message.senderRole) ? (message.senderName || 'Agente') : 'Tú' }}
               </span>
               <div class="message-bubble">
                 <!-- Reply preview -->
@@ -327,10 +327,13 @@ import SatisfactionSurvey from '@/components/SatisfactionSurvey.vue'
 import EmojiMartPicker from '@/components/chat/EmojiMartPicker.vue'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
 import UiTooltip from '@/components/ui/UiTooltip.vue'
+import { useAppDialog } from '@/composables/useAppDialog'
+import { isStaffRole } from '@/utils/chatRoles'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
+const appDialog = useAppDialog()
 
 const subject = ref('')
 const messageInput = ref('')
@@ -508,8 +511,8 @@ function handleDragLeave() {
   }
 }
 
-function endChat() {
-  if (confirm('¿Estás seguro de que deseas finalizar la conversación?')) {
+async function endChat() {
+  if (await appDialog.confirm('¿Estás seguro de que deseas finalizar la conversación?', { title: 'Finalizar conversación', confirmLabel: 'Finalizar' })) {
     chatStore.clientEndChat()
     // La limpieza se maneja en el listener de 'chat:ended' en el store
   }
@@ -527,8 +530,8 @@ function handleSurveySubmit(rating: number, feedback: string) {
   }
 }
 
-function handleLogout() {
-  if (confirm('¿Estás seguro de que deseas salir?')) {
+async function handleLogout() {
+  if (await appDialog.confirm('¿Estás seguro de que deseas salir?', { title: 'Cerrar sesión', confirmLabel: 'Salir' })) {
     chatStore.disconnectSocket()
     chatStore.reset()
     authStore.logout()
@@ -1457,18 +1460,60 @@ function handleDocumentClick(event: MouseEvent) {
 }
 
 .message.own .message-status {
-  color: var(--color-text-on-dark);
-  opacity: 0.75;
+  color: #ffffff;
+  font-weight: 700;
+  opacity: 1;
+  text-shadow: 0 1px 1px rgba(18, 20, 48, 0.45);
 }
 
 .message.own .message-status .read {
-  color: var(--color-info-light);
+  color: #67e8f9;
+  text-shadow: 0 1px 1px rgba(18, 20, 48, 0.5);
 }
 </style>
 
-
-
-
+<style scoped>
+/* Experiencia de cliente alineada con la consola */
+.client-container { background: #f4f5f9; }
+.client-header { min-height: 66px; padding: 0 22px; background: #15172e; }
+.header-info h1 { font-family: Manrope, Inter, sans-serif; font-size: 1rem; font-weight: 700; }
+.status-badge { padding: 4px 9px; background: #31356a; color: #d8d9e6; }
+.status-badge.connected { background: #173f35; color: #71e1b6; }
+.sound-toggle, .logout-btn { border-color: rgba(255,255,255,.18); border-radius: 8px; }
+.chat-area { max-width: 920px; padding: 22px; }
+.prompt-content { width: min(520px, 100%); padding: 42px; border: 1px solid #e6e7f0; border-radius: 18px; box-shadow: 0 16px 44px rgba(21,23,46,.08); }
+.prompt-icon { width: 56px; height: 56px; margin: 0 auto; display: grid; place-items: center; border-radius: 14px; background: #eeebfd; color: #5849e0; font-size: 1.6rem; }
+.prompt-content h2 { font-family: Manrope, Inter, sans-serif; color: #15172e; font-weight: 700; }
+.subject-input input { max-width: none; height: 48px; border: 1px solid #e6e7f0; border-radius: 10px; background: #f4f5f9; }
+.start-btn { width: 100%; background: #5849e0; border-radius: 10px; }
+.start-btn:hover:not(:disabled) { transform: none; background: #4238be; }
+.chat-content { border: 1px solid #e6e7f0; border-radius: 14px; box-shadow: 0 12px 36px rgba(21,23,46,.07); }
+.chat-status-bar { padding: 12px 18px; background: #fff; color: #6c6f8d; text-align: left; }
+.messages-container { padding: 24px 28px; background: #f4f5f9; gap: 18px; }
+.message { max-width: 72%; }
+.message.own { align-self: flex-end; }
+.message-avatar { width: 32px; height: 32px; min-width: 32px; font-size: .7rem; }
+.message-avatar.agent { background: #31356a; }
+.message-avatar.client { background: #5849e0; }
+.sender-name { color: #6c6f8d !important; }
+.message-bubble { border: 1px solid #e6e7f0; border-radius: 4px 14px 14px 14px; background: #fff; }
+.message.own .message-bubble { border: 0; border-radius: 14px 4px 14px 14px; background: #5849e0; }
+.input-area { padding: 14px 20px; background: #fff; }
+.input-row.primary { padding: 7px; border: 1px solid #e6e7f0; border-radius: 14px; background: #f4f5f9; }
+.input-area .message-input { min-height: 40px; border: 0; border-radius: 8px; background: transparent; font-size: .9rem; }
+.input-area .message-input:focus { border: 0; }
+.mic-btn, .attach-btn { border-color: #e6e7f0; background: #fff; }
+.send-btn { min-height: 40px; padding: 0 18px; border-radius: 9px; background: #5849e0; }
+.chat-actions { background: #fff; }
+.end-chat-btn { border-radius: 8px; }
+@media (max-width: 640px) {
+  .client-header { min-height: 58px; padding: 0 14px; }
+  .chat-area { padding: 8px; }
+  .messages-container { padding: 16px 12px; }
+  .message { max-width: 90%; }
+  .prompt-content { padding: 28px 20px; }
+}
+</style>
 
 
 

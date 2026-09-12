@@ -1,16 +1,13 @@
 const messageRepository = require('../infrastructure/repositories/MessageRepository');
 const chatRepository = require('../infrastructure/repositories/ChatRepository');
+const agentChannelRepository = require('../infrastructure/repositories/AgentChannelRepository');
+const supportAccessPolicy = require('../domain/policies/supportAccessPolicy');
 const { verifyAuthToken } = require('../config/auth');
 
 function getTokenFromRequest(request) {
   const header = request.headers.authorization || request.headers.Authorization;
   if (typeof header === 'string' && header.startsWith('Bearer ')) {
     return header.slice('Bearer '.length).trim();
-  }
-
-  const queryToken = request.query?.token;
-  if (typeof queryToken === 'string' && queryToken.trim()) {
-    return queryToken.trim();
   }
 
   return null;
@@ -59,15 +56,21 @@ async function authorizeChatMessageAccess(request, reply, messageId) {
     return sendAuthError(reply, 404, 'Resource not found');
   }
 
-  const chat = await chatRepository.findById(message.chatId);
+  const chat = await chatRepository.findById(message.chatId, auth.companyId);
   if (!chat) {
     return sendAuthError(reply, 404, 'Resource not found');
   }
 
-  const isClientOwner = auth.role === 'client' && chat.clientId === auth.userId;
-  const isAssignedAgent = auth.role === 'agent' && chat.agentId === auth.userId;
+  const sameCompany = Number(chat.companyId) === Number(auth.companyId);
+  const sameClientChannel = !auth.channelId || Number(chat.channelId) === Number(auth.channelId);
+  const isClientOwner = sameCompany && sameClientChannel && auth.role === 'client' && chat.clientId === auth.userId;
+  const isCompanyManager = sameCompany && supportAccessPolicy.COMPANY_WIDE_ROLES.has(auth.role);
+  const agentHasChannel = sameCompany && auth.role === 'agent'
+    ? await agentChannelRepository.hasChannel(auth.userId, chat.channelId, auth.companyId)
+    : false;
+  const isAssignedAgent = agentHasChannel && chat.agentId === auth.userId;
 
-  if (!isClientOwner && !isAssignedAgent) {
+  if (!isClientOwner && !isAssignedAgent && !isCompanyManager) {
     return sendAuthError(reply, 403, 'Forbidden');
   }
 

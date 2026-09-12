@@ -1,6 +1,6 @@
 import type { ComputedRef, Ref } from 'vue'
 import socketService from '@/services/socket'
-import type { Agent, Chat, ChatStatus, Message, MessageStatus } from './chatTypes'
+import type { Agent, Chat, ChatStatus, Message, MessageStatus, SupportDepartment } from './chatTypes'
 
 type AuthLike = {
   userId: number | null
@@ -15,6 +15,7 @@ export function registerSupportListeners(params: {
   messages: Ref<Map<number, Message[]>>
   typingUsers: Ref<Set<number>>
   availableAgents: Ref<Agent[]>
+  departments: Ref<SupportDepartment[]>
   agentChatHistory: Ref<Chat[]>
   showSurvey: Ref<boolean>
   surveySubmitted: Ref<boolean>
@@ -38,6 +39,7 @@ export function registerSupportListeners(params: {
     messages,
     typingUsers,
     availableAgents,
+    departments,
     agentChatHistory,
     showSurvey,
     surveySubmitted,
@@ -56,6 +58,26 @@ export function registerSupportListeners(params: {
 
   const lastUnreadCountByChatId = new Map<number, number>()
   const lastSupportSoundAtByChatId = new Map<number, number>()
+  const pendingStatusByMessageId = new Map<number, MessageStatus>()
+  const statusRank: Record<MessageStatus, number> = {
+    failed: 0,
+    sent: 1,
+    delivered: 2,
+    read: 3
+  }
+
+  function applyLatestStatus(message: Message, status: MessageStatus) {
+    if (status === 'failed' || statusRank[status] >= statusRank[message.status || 'sent']) {
+      message.status = status
+    }
+  }
+
+  function applyPendingStatus(message: Message) {
+    const pendingStatus = pendingStatusByMessageId.get(message.id)
+    if (!pendingStatus) return
+    applyLatestStatus(message, pendingStatus)
+    pendingStatusByMessageId.delete(message.id)
+  }
 
   function maybePlayAgentSupportSound(chatId: number) {
     if (authStore.role !== 'agent') return
@@ -85,6 +107,10 @@ export function registerSupportListeners(params: {
   socket.on('chat:created', (chat: Chat) => {
     addOrUpdateChat(chat)
     currentChatId.value = chat.id
+  })
+
+  socket.on('client:departments', (items: SupportDepartment[]) => {
+    departments.value = Array.isArray(items) ? items : []
   })
 
   socket.on('chat:assigned', (data: { chatId: number; agentId: number; status: ChatStatus }) => {
@@ -134,9 +160,13 @@ export function registerSupportListeners(params: {
   })
 
   socket.on('chat:new-pending', (chat: Chat) => {
-    if (pendingChats.value.find((item) => item.id === chat.id)) return
+    const existingIndex = pendingChats.value.findIndex((item) => item.id === chat.id)
+    if (existingIndex >= 0) {
+      pendingChats.value[existingIndex] = { ...pendingChats.value[existingIndex], ...chat }
+      return
+    }
     pendingChats.value.push(chat)
-    if (authStore.role === 'agent') {
+    if (authStore.role && ['agent', 'admin', 'supervisor'].includes(authStore.role)) {
       playNotificationSound('pending')
       incrementUnseen()
     }
@@ -160,6 +190,7 @@ export function registerSupportListeners(params: {
   })
 
   socket.on('message:new', (message: Message) => {
+    applyPendingStatus(message)
     addMessage(message)
     if (message.chatId === currentChatId.value && message.userId !== authStore.userId) {
       markMessagesAsRead(message.chatId)
@@ -170,6 +201,7 @@ export function registerSupportListeners(params: {
   })
 
   socket.on('messages:history', (data: { chatId: number; messages: Message[] }) => {
+    data.messages.forEach(applyPendingStatus)
     const sorted = [...data.messages].sort((a, b) => {
       const at = new Date(a.timestamp).getTime()
       const bt = new Date(b.timestamp).getTime()
@@ -257,10 +289,16 @@ export function registerSupportListeners(params: {
 
   socket.on('message:status-updated', (data: { chatId: number; messageIds: number[]; status: MessageStatus }) => {
     const chatMessages = messages.value.get(data.chatId)
-    if (!chatMessages) return
-    chatMessages.forEach((message) => {
-      if (data.messageIds.includes(message.id)) {
-        message.status = data.status
+    data.messageIds.forEach((messageId) => {
+      const message = chatMessages?.find((item) => item.id === messageId)
+      if (message) {
+        applyLatestStatus(message, data.status)
+        return
+      }
+
+      const pendingStatus = pendingStatusByMessageId.get(messageId)
+      if (!pendingStatus || statusRank[data.status] >= statusRank[pendingStatus]) {
+        pendingStatusByMessageId.set(messageId, data.status)
       }
     })
   })
@@ -365,9 +403,15 @@ export function createSupportActions(params: {
     socketService.emit('client:get-history')
   }
 
-  function startChat(subject?: string) {
+  function getDepartments() {
+    socketService.emit('client:get-departments')
+  }
+
+  function startChat(subject?: string, departmentId?: number | null) {
     socketService.emit('client:start-chat', {
-      subject: subject || 'Soporte'
+      subject: subject || 'Soporte',
+      intention: subject || 'Soporte',
+      departmentId: departmentId || null
     })
   }
 
@@ -548,6 +592,7 @@ export function createSupportActions(params: {
     updateChatStatus,
     selectChat,
     getClientHistory,
+    getDepartments,
     startChat,
     viewChat,
     clientSendMessage,

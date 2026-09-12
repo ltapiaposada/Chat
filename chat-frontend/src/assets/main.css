@@ -45,3 +45,49 @@ a,
     place-items: center;
   }
 }
+
+/* Las selecciones se comunican solo con fondo; sin barras decorativas laterales. */
+.agent-layout .nav-item.active,
+.client-layout .nav-item.active,
+.chat-item.active,
+.channel-card.selected {
+  border-left-width: 0 !important;
+  box-shadow: none !important;
+}
+
+.reply-preview,
+.replying-to-bar,
+.history-item.active {
+  border-left: 0 !important;
+}
+
+/* Separación visible entre opciones contiguas con estados active y hover. */
+.agent-layout .sidebar-nav,
+.client-layout .sidebar-nav {
+  gap: 6px !important;
+}
+
+.chats-list,
+.users-list,
+.history-list,
+.pending-list,
+.groups-list,
+.agents-list,
+.channel-list {
+  gap: 6px !important;
+}
+
+.chats-list,
+.users-list,
+.history-list,
+.pending-list,
+.groups-list,
+.agents-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.channel-list {
+  display: flex;
+  flex-direction: column;
+}

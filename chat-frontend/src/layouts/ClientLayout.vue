@@ -67,16 +67,18 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import HeroIcon from '@/components/ui/HeroIcon.vue'
+import { useAppDialog } from '@/composables/useAppDialog'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
+const appDialog = useAppDialog()
 
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
     'client-home': 'Bienvenido',
-    'client-history': 'Mis Chats'
+    'client-history': 'Mis chats'
   }
   return titles[route.name as string] || 'Soporte'
 })
@@ -104,8 +106,8 @@ function getInitials(name?: string): string {
   return (name.substring(0, 2) || 'C').toUpperCase()
 }
 
-function handleLogout() {
-  if (confirm('¿Estás seguro de que deseas salir?')) {
+async function handleLogout() {
+  if (await appDialog.confirm('¿Estás seguro de que deseas salir?', { title: 'Cerrar sesión', confirmLabel: 'Salir' })) {
     chatStore.disconnectSocket()
     chatStore.reset()
     authStore.logout()
@@ -122,6 +124,29 @@ function handleLogout() {
   background: var(--color-bg);
   min-width: 0;
 }
+
+/* Mismo lenguaje visual de la consola para el portal del cliente */
+.sidebar { width: 232px; min-width: 232px; background: #15172e; }
+.sidebar-header { min-height: 72px; padding: 0 22px; border-bottom-color: rgba(255,255,255,.08); }
+.sidebar-header .logo { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: #5849e0; font-size: 1.1rem; }
+.sidebar-header h2 { font-size: 1rem; font-weight: 700; }
+.sidebar-nav { padding: 18px 12px; gap: 4px; }
+.nav-item { min-height: 42px; margin: 0; padding: 0 12px; border-radius: 8px; color: #a9abc2; transition: background-color .16s ease, color .16s ease; }
+.nav-item:hover { background: #22254a; color: #fff; }
+.nav-item.active { background: #31356a; color: #fff; box-shadow: inset 3px 0 0 #7c6ff0; }
+.nav-icon { width: 22px; height: 22px; font-size: 1rem; }
+.nav-text { font-size: .84rem; font-weight: 600; }
+.nav-badge { min-width: 20px; height: 20px; background: #5849e0; }
+.sidebar-footer { padding: 16px; border-top-color: rgba(255,255,255,.08); }
+.user-avatar { width: 36px; height: 36px; background: #31356a; }
+.user-name { color: #fff; font-weight: 600; }
+.user-status { position: relative; padding-left: 12px; color: #a9abc2; }
+.user-status::before { content: ''; position: absolute; left: 0; top: 50%; width: 7px; height: 7px; border-radius: 50%; background: #6c6f8d; transform: translateY(-50%); }
+.user-status.online { color: #a9abc2; }
+.user-status.online::before { background: #27c58a; }
+.navbar { min-height: 64px; padding: 0 24px; background: #fff; }
+.page-title { font-family: Manrope, Inter, sans-serif; font-size: 1.05rem; font-weight: 700; }
+.navbar-btn { border-radius: 8px; padding: 8px 12px; }
 
 /* Sidebar */
 .sidebar {
@@ -473,8 +498,28 @@ function handleLogout() {
 }
 </style>
 
-
-
-
+<style scoped>
+.client-layout > .sidebar { width:232px; min-width:232px; background:#15172e; }
+.client-layout .sidebar-header { min-height:72px; padding:0 22px; border-bottom-color:rgba(255,255,255,.08); }
+.client-layout .sidebar-header .logo { width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:#5849e0; font-size:1.1rem; }
+.client-layout .sidebar-header h2 { font-size:1rem; font-weight:700; }
+.client-layout .sidebar-nav { padding:18px 12px; gap:4px; }
+.client-layout .nav-item { min-height:42px; margin:0; padding:0 12px; border-radius:8px; color:#a9abc2; }
+.client-layout .nav-item:hover { background:#22254a; color:#fff; }
+.client-layout .nav-item.active { background:#31356a; color:#fff; box-shadow:inset 3px 0 0 #7c6ff0; }
+.client-layout .nav-icon { width:22px; height:22px; font-size:1rem; }
+.client-layout .nav-text { font-size:.84rem; font-weight:600; }
+.client-layout .nav-badge { min-width:20px; height:20px; background:#5849e0; }
+.client-layout .sidebar-footer { padding:16px; border-top-color:rgba(255,255,255,.08); }
+.client-layout .user-avatar { width:36px; height:36px; background:#31356a; }
+.client-layout .user-name { color:#fff; font-weight:600; }
+.client-layout .user-status { position:relative; padding-left:12px; color:#a9abc2; }
+.client-layout .user-status::before { content:''; position:absolute; left:0; top:50%; width:7px; height:7px; border-radius:50%; background:#6c6f8d; transform:translateY(-50%); }
+.client-layout .user-status.online { color:#a9abc2; }
+.client-layout .user-status.online::before { background:#27c58a; }
+.client-layout .navbar { min-height:64px; padding:0 24px; background:#fff; }
+.client-layout .page-title { font-family:Manrope,Inter,sans-serif; font-size:1.05rem; font-weight:700; }
+@media (max-width:640px) { .client-layout > .sidebar { width:100%; min-width:0; } }
+</style>
 
 

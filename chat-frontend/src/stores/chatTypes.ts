@@ -1,5 +1,11 @@
 export type ChatStatus = 'pending' | 'active' | 'on_hold' | 'closed'
-export type MessageStatus = 'sent' | 'delivered' | 'read'
+export type MessageStatus = 'sent' | 'delivered' | 'read' | 'failed'
+
+export interface SupportDepartment {
+  id: number
+  name: string
+  slug: string
+}
 
 export interface Chat {
   id: number
@@ -9,11 +15,16 @@ export interface Chat {
   agentName?: string
   status: ChatStatus
   channel?: 'web' | 'whatsapp'
+  channelName?: string | null
+  departmentId?: number | null
+  departmentName?: string | null
+  intention?: string | null
   subject?: string
   createdAt: Date
   assignedAt?: Date
   closedAt?: Date
   firstResponseAt?: Date
+  lastCustomerMessageAt?: Date | null
   unreadCount: number
   lastMessage?: string
   rating?: number | null

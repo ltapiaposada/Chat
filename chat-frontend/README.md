@@ -72,6 +72,81 @@ npm run dev
 
 La aplicación estará disponible en `http://localhost:5173`
 
+## Widget embebible
+
+El chat del cliente se puede instalar en cualquier sitio web con un solo script:
+
+```html
+<script
+  src="https://chat.example.com/chat-widget.js"
+  data-channel-key="ch_clave_publica_generada"
+></script>
+```
+
+El widget no solicita credenciales ni requiere controladores en la aplicación
+anfitriona. Conserva un identificador aleatorio en el navegador. El botón
+**Mis chats**, ubicado dentro del widget, abre una modal con calificación,
+comentario, agente, fecha y duración.
+
+La aplicación puede enviar datos visibles del usuario desde el frontend:
+
+```html
+<script src="https://chat.example.com/chat-widget.js" data-manual></script>
+<script>
+  window.SupportChat.init({
+    channelKey: 'ch_clave_publica_generada',
+    authenticated: true,
+    user: { id: usuario.id, name: usuario.nombre, email: usuario.email }
+  })
+  // Acciones opcionales para integrarlo con el menú del sitio:
+  window.SupportChat.open()
+  window.SupportChat.openHistory()
+  window.SupportChat.close()
+</script>
+```
+
+Para mostrarlo solamente cuando el sitio tenga una sesión:
+
+```html
+<script
+  src="https://chat.example.com/chat-widget.js"
+  data-channel-key="ch_clave_publica_generada"
+  data-api-url="https://api.chat.example.com"
+  data-auth-storage-key="token"
+  data-user-storage-key="user"
+></script>
+```
+
+El valor de `data-auth-storage-key` es el nombre usado por el sitio en
+`localStorage`. `data-user-storage-key` es la clave que contiene el usuario en
+JSON (por defecto `user`). El token solo se usa para comprobar si existe y nunca
+se envía al servidor del chat. El widget envía el identificador, nombre y correo
+del usuario; reconoce propiedades como `id`, `userId`, `name`, `firstName`,
+`lastName`, `email`, `userFirstName`, `userLastName` y `userEmail`.
+
+En un canal `authenticated`, el widget permanece oculto mientras no exista el
+token. En un canal `mixed`, usa el usuario autenticado cuando hay token y crea
+una identidad `Visitante` cuando no lo hay.
+El modo se consulta al backend, por lo que cambiarlo desde Configuración no
+obliga a reemplazar el script instalado en el sitio.
+Si la sesión no está en `localStorage`, la aplicación puede llamar
+`SupportChat.setAuthenticated(true)` después de iniciar sesión y
+`SupportChat.setAuthenticated(false)` al cerrar sesión.
+
+No se debe insertar `AUTH_SECRET`, contraseñas ni tokens de agentes en el HTML.
+Este modo conserva el historial por navegador y sitio. Recuperarlo en otro
+dispositivo requiere una integración servidor-a-servidor opcional.
+
+Durante desarrollo se puede probar con:
+
+```html
+<script src="http://localhost:5173/chat-widget.js"></script>
+```
+
+La vista interna del iframe vive en `/embed`. En producción, el frontend debe
+servirse por HTTPS y `VITE_API_URL`/`VITE_SOCKET_URL` deben apuntar al backend
+HTTPS desplegado.
+
 ## Cómo Usar
 
 1. **Inicia el backend** primero en `http://localhost:3000`

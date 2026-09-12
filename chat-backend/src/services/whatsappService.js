@@ -1,10 +1,13 @@
 const https = require('https');
 
-function getConfig() {
+function getConfig(connection) {
+  if (!connection?.accessToken || !connection?.phoneNumberId) {
+    throw new Error('WhatsApp connection is not configured');
+  }
   return {
-    accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
-    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
-    graphVersion: process.env.WHATSAPP_GRAPH_VERSION || 'v19.0'
+    accessToken: connection.accessToken,
+    phoneNumberId: connection.phoneNumberId,
+    graphVersion: connection.graphVersion || 'v19.0'
   };
 }
 
@@ -112,11 +115,8 @@ function buildMultipartBody({ fields, files }) {
   return { body: Buffer.concat(chunks), boundary };
 }
 
-async function sendText({ to, text, replyToMessageId }) {
-  const { accessToken, phoneNumberId, graphVersion } = getConfig();
-  if (!accessToken || !phoneNumberId) {
-    throw new Error('WhatsApp not configured: WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID missing');
-  }
+async function sendText(connection, { to, text, replyToMessageId }) {
+  const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
 
   const body = {
     messaging_product: 'whatsapp',
@@ -142,11 +142,8 @@ async function sendText({ to, text, replyToMessageId }) {
   return response?.messages?.[0]?.id || null;
 }
 
-async function getMediaInfo(mediaId) {
-  const { accessToken, graphVersion } = getConfig();
-  if (!accessToken) {
-    throw new Error('WhatsApp not configured: WHATSAPP_ACCESS_TOKEN missing');
-  }
+async function getMediaInfo(connection, mediaId) {
+  const { accessToken, graphVersion } = getConfig(connection);
   const response = await requestJson({
     method: 'GET',
     hostname: 'graph.facebook.com',
@@ -158,11 +155,8 @@ async function getMediaInfo(mediaId) {
   return response;
 }
 
-function downloadMedia(url) {
-  const { accessToken } = getConfig();
-  if (!accessToken) {
-    throw new Error('WhatsApp not configured: WHATSAPP_ACCESS_TOKEN missing');
-  }
+function downloadMedia(connection, url) {
+  const { accessToken } = getConfig(connection);
   return new Promise((resolve, reject) => {
     const options = {
       method: 'GET',
@@ -187,11 +181,8 @@ function downloadMedia(url) {
   });
 }
 
-async function sendMedia({ to, type, url, caption, filename, replyToMessageId }) {
-  const { accessToken, phoneNumberId, graphVersion } = getConfig();
-  if (!accessToken || !phoneNumberId) {
-    throw new Error('WhatsApp not configured: WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID missing');
-  }
+async function sendMedia(connection, { to, type, url, caption, filename, replyToMessageId }) {
+  const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
 
   const payload = {
     messaging_product: 'whatsapp',
@@ -228,11 +219,8 @@ async function sendMedia({ to, type, url, caption, filename, replyToMessageId })
   return response?.messages?.[0]?.id || null;
 }
 
-async function uploadMedia({ buffer, mimeType, filename }) {
-  const { accessToken, phoneNumberId, graphVersion } = getConfig();
-  if (!accessToken || !phoneNumberId) {
-    throw new Error('WhatsApp not configured: WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID missing');
-  }
+async function uploadMedia(connection, { buffer, mimeType, filename }) {
+  const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
 
   const fields = {
     messaging_product: 'whatsapp',
@@ -278,11 +266,8 @@ async function uploadMedia({ buffer, mimeType, filename }) {
   throw error;
 }
 
-async function sendAudioById({ to, mediaId, replyToMessageId, voice }) {
-  const { accessToken, phoneNumberId, graphVersion } = getConfig();
-  if (!accessToken || !phoneNumberId) {
-    throw new Error('WhatsApp not configured: WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID missing');
-  }
+async function sendAudioById(connection, { to, mediaId, replyToMessageId, voice }) {
+  const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
   if (!mediaId) {
     throw new Error('mediaId is required to send audio by id');
   }
@@ -314,11 +299,8 @@ async function sendAudioById({ to, mediaId, replyToMessageId, voice }) {
   return response?.messages?.[0]?.id || null;
 }
 
-async function sendTemplate({ to, name, languageCode, components }) {
-  const { accessToken, phoneNumberId, graphVersion } = getConfig();
-  if (!accessToken || !phoneNumberId) {
-    throw new Error('WhatsApp not configured: WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID missing');
-  }
+async function sendTemplate(connection, { to, name, languageCode, components }) {
+  const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
   if (!name || !languageCode) {
     throw new Error('Template name and languageCode are required');
   }

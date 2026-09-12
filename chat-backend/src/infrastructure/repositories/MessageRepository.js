@@ -12,15 +12,16 @@ class MessageRepository {
     return this._mapMessage(result.rows[0]);
   }
 
-  async findByExternalMessageId(externalMessageId) {
+  async findByExternalMessageId(externalMessageId, whatsappConnectionId) {
+    if (!whatsappConnectionId) throw new Error('whatsappConnectionId is required');
     const result = await db.query(
       `SELECT m.*, u.role as sender_role, u.name as sender_name
        FROM messages m
        JOIN users u ON m.user_id = u.id
-       WHERE m.external_message_id = $1
+       WHERE m.external_message_id = $1 AND m.whatsapp_connection_id = $2
        ORDER BY m.created_at DESC
        LIMIT 1`,
-      [externalMessageId]
+      [externalMessageId, whatsappConnectionId]
     );
     return this._mapMessage(result.rows[0]);
   }
@@ -41,7 +42,27 @@ class MessageRepository {
     return result.rows.map(row => this._mapMessage(row));
   }
 
-  async create({ chatId, userId, content, senderRole, replyToId, channel, externalMessageId, status }) {
+  async create({ chatId, userId, content, senderRole, replyToId, channel, externalMessageId, whatsappConnectionId, status }) {
+    let replyToContent = null;
+    let replyToSenderRole = null;
+
+    if (replyToId) {
+      const replyResult = await db.query(
+        `SELECT m.content, u.role AS sender_role
+         FROM messages m
+         JOIN users u ON u.id = m.user_id
+         WHERE m.id = $1 AND m.chat_id = $2`,
+        [replyToId, chatId]
+      );
+
+      if (!replyResult.rows[0]) {
+        throw new Error('El mensaje respondido no pertenece a este chat');
+      }
+
+      replyToContent = replyResult.rows[0].content;
+      replyToSenderRole = replyResult.rows[0].sender_role;
+    }
+
     // Get user name for the sender
     const userResult = await db.query(
       `SELECT name FROM users WHERE id = $1`,
@@ -50,8 +71,8 @@ class MessageRepository {
     const senderName = userResult.rows[0]?.name || null;
     
     const result = await db.query(
-      `INSERT INTO messages (chat_id, user_id, content, reply_to_id, status, channel, external_message_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+      `INSERT INTO messages (chat_id, user_id, content, reply_to_id, status, channel, external_message_id, whatsapp_connection_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         chatId,
@@ -60,20 +81,10 @@ class MessageRepository {
         replyToId || null,
         status || 'sent',
         channel || 'web',
-        externalMessageId || null
+        externalMessageId || null,
+        whatsappConnectionId || null
       ]
     );
-    
-    // If there's a reply, get the replied message content
-    let replyToContent = null;
-    let replyToSenderRole = null;
-    if (replyToId) {
-      const replyMsg = await this.findById(replyToId);
-      if (replyMsg) {
-        replyToContent = replyMsg.content;
-        replyToSenderRole = replyMsg.senderRole;
-      }
-    }
     
     // Return with sender info and reply info
     return {
@@ -116,16 +127,27 @@ class MessageRepository {
 
   async updateStatus(messageId, status) {
     const result = await db.query(
-      `UPDATE messages SET status = $1 WHERE id = $2 RETURNING *`,
+      `UPDATE messages
+       SET status = $1
+       WHERE id = $2
+         AND CASE $1
+           WHEN 'sent' THEN status = 'sent'
+           WHEN 'delivered' THEN status IN ('sent', 'delivered')
+           WHEN 'read' THEN status IN ('sent', 'delivered', 'read')
+           WHEN 'failed' THEN status IN ('sent', 'failed')
+           ELSE false
+         END
+       RETURNING *`,
       [status, messageId]
     );
     return this._mapMessage(result.rows[0]);
   }
 
-  async updateExternalMessageId(messageId, externalMessageId) {
+  async updateExternalMessageId(messageId, externalMessageId, whatsappConnectionId) {
+    if (!whatsappConnectionId) throw new Error('whatsappConnectionId is required');
     const result = await db.query(
-      `UPDATE messages SET external_message_id = $1 WHERE id = $2 RETURNING *`,
-      [externalMessageId, messageId]
+      `UPDATE messages SET external_message_id = $1, whatsapp_connection_id = $2 WHERE id = $3 RETURNING *`,
+      [externalMessageId, whatsappConnectionId, messageId]
     );
     return this._mapMessage(result.rows[0]);
   }
@@ -170,6 +192,7 @@ class MessageRepository {
       status: row.status || 'sent',
       channel: row.channel || 'web',
       externalMessageId: row.external_message_id || null,
+      whatsappConnectionId: row.whatsapp_connection_id || null,
       timestamp: row.created_at,
       createdAt: row.created_at
     };

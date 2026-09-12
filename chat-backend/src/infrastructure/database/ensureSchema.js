@@ -1,12 +1,25 @@
 async function ensureSchema(db) {
+  await db.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE departments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+
   // WhatsApp user mapping
   await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_id TEXT`);
-  await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_whatsapp_id ON users(whatsapp_id)`);
+  await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_whatsapp_id_key`);
+  await db.query(`DROP INDEX IF EXISTS idx_users_whatsapp_id`);
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_whatsapp_tenant
+    ON users(company_id, channel_id, whatsapp_id)
+    WHERE whatsapp_id IS NOT NULL
+  `);
   await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS identity_provider TEXT`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS external_user_id TEXT`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS external_email TEXT`);
   await db.query(`
     UPDATE users
     SET password_hash = '$2a$10$EO7JDAOrvbzDzDOJyRGhOOoWTstokCH9jFH/YR3MPn1V0Dx1AVQuG'
-    WHERE email IN ('agent1@support.com', 'agent2@support.com', 'agent3@support.com')
+    WHERE email IN ('agent1@support.com', 'agent2@support.com', 'agent3@support.com') AND password_hash IS NULL
   `);
 
   // Chat channel

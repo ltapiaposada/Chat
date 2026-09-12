@@ -49,7 +49,7 @@ const authStore = useAuthStore()
   justify-content: center;
   padding: 2rem;
   position: relative;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  background: #f4f5f9;
 }
 
 .welcome-content {
@@ -63,9 +63,15 @@ const authStore = useAuthStore()
 }
 
 .welcome-icon {
-  font-size: 4rem;
-  display: block;
-  margin-bottom: 1rem;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 1rem;
+  border-radius: 16px;
+  color: #5849e0;
+  background: #eeebfd;
+  font-size: 2rem;
 }
 
 .welcome-header h1 {
@@ -94,13 +100,15 @@ const authStore = useAuthStore()
   padding: 1.25rem;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e6e7f0;
+  box-shadow: 0 6px 20px rgba(21, 23, 46, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .feature:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-color: #cfc9f8;
+  box-shadow: 0 10px 28px rgba(21, 23, 46, 0.08);
 }
 
 .feature-icon {
@@ -140,6 +148,5 @@ const authStore = useAuthStore()
   }
 }
 </style>
-
 
 
