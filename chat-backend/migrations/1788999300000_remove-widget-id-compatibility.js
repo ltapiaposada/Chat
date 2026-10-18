@@ -1,3 +1,11 @@
+/**
+ * @file Elimina la columna `legacy_widget_id` de la tabla `channels` tras
+ * migrar sus valores al nuevo campo `slug`. Asigna slugs basados en los
+ * identificadores heredados, actualiza el modo de autenticación del canal
+ * `orka-local`, sincroniza `external_tenant_id` de los usuarios con la
+ * clave pública del canal, y crea un índice único sobre `(company_id, slug)`.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     ALTER TABLE channels ADD COLUMN IF NOT EXISTS slug VARCHAR(120);

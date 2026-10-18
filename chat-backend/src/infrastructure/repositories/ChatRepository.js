@@ -1,5 +1,12 @@
 const db = require('../database/postgres');
 
+/**
+ * Valida y normaliza el identificador de empresa requerido para operaciones multitenant.
+ *
+ * @param {number} companyId - Identificador de la empresa.
+ * @returns {number} Identificador numérico validado.
+ * @throws {Error} Si el identificador no es un entero positivo.
+ */
 function requireTenant(companyId) {
   const value = Number(companyId);
   if (!Number.isInteger(value) || value <= 0) throw new Error('companyId is required');
@@ -7,6 +14,12 @@ function requireTenant(companyId) {
 }
 
 class ChatRepository {
+  /**
+   * Busca una conversación por empresa e identificador.
+   * @param {number} id - Identificador de la conversación.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<Object|null>} Conversación encontrada.
+   */
   async findById(id, companyId) {
     const tenantId = requireTenant(companyId);
     const result = await db.query(
@@ -23,6 +36,12 @@ class ChatRepository {
     return this._mapChat(result.rows[0]);
   }
 
+  /**
+   * Lista las conversaciones de un cliente dentro de una empresa.
+   * @param {number} clientId - Identificador del cliente.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<Object[]>} Conversaciones del cliente.
+   */
   async findByClientId(clientId, companyId) {
     const tenantId = requireTenant(companyId);
     const result = await db.query(
@@ -37,6 +56,12 @@ class ChatRepository {
     return result.rows.map((row) => this._mapChat(row));
   }
 
+  /**
+   * Lista las conversaciones asignadas a un agente.
+   * @param {number} agentId - Identificador del agente.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<Object[]>} Conversaciones asignadas.
+   */
   async findByAgentId(agentId, companyId) {
     const tenantId = requireTenant(companyId);
     const result = await db.query(
@@ -51,6 +76,12 @@ class ChatRepository {
     return result.rows.map((row) => this._mapChat(row));
   }
 
+  /**
+   * Lista conversaciones empresariales por estado.
+   * @param {string} status - Estado requerido.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<Object[]>} Conversaciones coincidentes.
+   */
   async findByStatus(status, companyId) {
     const tenantId = requireTenant(companyId);
     const result = await db.query(
@@ -65,6 +96,14 @@ class ChatRepository {
     return result.rows.map((row) => this._mapChat(row));
   }
 
+  /**
+   * Lista conversaciones pendientes respetando canales, departamentos y alcance del rol.
+   * @param {number} companyId - Empresa propietaria.
+   * @param {number[]} channelIds - Canales visibles.
+   * @param {number[]} [departmentIds=[]] - Departamentos visibles.
+   * @param {boolean} [companyWide=false] - Habilita acceso global en la empresa.
+   * @returns {Promise<Object[]>} Conversaciones disponibles para asignación.
+   */
   async findPending(companyId, channelIds, departmentIds = [], companyWide = false) {
     const tenantId = requireTenant(companyId);
     if (!Array.isArray(channelIds) || channelIds.length === 0) return [];
@@ -85,6 +124,12 @@ class ChatRepository {
     return result.rows.map((row) => this._mapChat(row));
   }
 
+  /**
+   * Lista conversaciones activas o en espera asignadas a un agente.
+   * @param {number} agentId - Identificador del agente.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<Object[]>} Conversaciones en atención.
+   */
   async findActiveByAgentId(agentId, companyId) {
     const tenantId = requireTenant(companyId);
     const result = await db.query(
@@ -102,6 +147,21 @@ class ChatRepository {
     return result.rows.map((row) => this._mapChat(row));
   }
 
+  /**
+   * Crea una conversación de soporte dentro de una empresa y canal.
+   *
+   * @param {Object} data - Datos de la conversación.
+   * @param {number} data.clientId - Identificador del cliente.
+   * @param {number} data.companyId - Empresa propietaria.
+   * @param {number} data.channelId - Canal asociado.
+   * @param {string} [data.subject] - Asunto de la conversación.
+   * @param {string} [data.channel='web'] - Tipo de canal.
+   * @param {number|null} [data.departmentId=null] - Departamento asignado.
+   * @param {string|null} [data.intention=null] - Intención detectada del cliente.
+   * @param {number|null} [data.agentId=null] - Agente preasignado.
+   * @returns {Promise<Object>} Conversación creada.
+   * @throws {Error} Si el `channelId` no es válido.
+   */
   async create({ clientId, companyId, channelId, subject, channel, departmentId = null,
     intention = null, agentId = null }) {
     const tenantId = requireTenant(companyId);
@@ -118,6 +178,14 @@ class ChatRepository {
     return this.findById(result.rows[0].id, tenantId);
   }
 
+  /**
+   * Asigna de forma atómica una conversación pendiente a un agente autorizado.
+   * @param {number} chatId - Conversación pendiente.
+   * @param {number} agentId - Agente que la toma.
+   * @param {number} companyId - Empresa propietaria.
+   * @param {number[]} channelIds - Canales autorizados para el agente.
+   * @returns {Promise<Object|null>} Conversación actualizada.
+   */
   async assignToAgent(chatId, agentId, companyId, channelIds) {
     const tenantId = requireTenant(companyId);
     if (!Array.isArray(channelIds) || channelIds.length === 0) return null;
@@ -131,6 +199,13 @@ class ChatRepository {
     return this.findById(chatId, tenantId);
   }
 
+  /**
+   * Actualiza el estado de una conversación empresarial.
+   * @param {number} chatId - Identificador de la conversación.
+   * @param {string} status - Nuevo estado.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<Object|null>} Conversación actualizada.
+   */
   async updateStatus(chatId, status, companyId) {
     const tenantId = requireTenant(companyId);
     await db.query(
@@ -142,6 +217,14 @@ class ChatRepository {
     return this.findById(chatId, tenantId);
   }
 
+  /**
+   * Busca la conversación abierta de un cliente en un canal concreto.
+   * @param {number} clientId - Identificador del cliente.
+   * @param {string} channel - Tipo de canal.
+   * @param {number} companyId - Empresa propietaria.
+   * @param {number} channelId - Instalación del canal.
+   * @returns {Promise<Object|null>} Conversación abierta.
+   */
   async findActiveByClientIdAndChannel(clientId, channel, companyId, channelId) {
     const tenantId = requireTenant(companyId);
     const result = await db.query(
@@ -158,6 +241,13 @@ class ChatRepository {
     return this._mapChat(result.rows[0]);
   }
 
+  /**
+   * Transfiere una conversación a otro agente de la empresa.
+   * @param {number} chatId - Conversación transferida.
+   * @param {number} newAgentId - Nuevo agente responsable.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<Object|null>} Conversación actualizada.
+   */
   async transferToAgent(chatId, newAgentId, companyId) {
     const tenantId = requireTenant(companyId);
     await db.query(
@@ -172,6 +262,12 @@ class ChatRepository {
     return this.findById(chatId, tenantId);
   }
 
+  /**
+   * Registra la primera respuesta del equipo sin sobrescribir una marca existente.
+   * @param {number} chatId - Conversación atendida.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<void>}
+   */
   async setFirstResponseTime(chatId, companyId) {
     const tenantId = requireTenant(companyId);
     await db.query(
@@ -181,6 +277,12 @@ class ChatRepository {
     return this.findById(chatId, tenantId);
   }
 
+  /**
+   * Actualiza la fecha del último mensaje recibido del cliente.
+   * @param {number} chatId - Conversación actualizada.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<void>}
+   */
   async touchCustomerMessage(chatId, companyId) {
     const tenantId = requireTenant(companyId);
     await db.query(
@@ -190,6 +292,14 @@ class ChatRepository {
     );
   }
 
+  /**
+   * Guarda la calificación y comentario de satisfacción.
+   * @param {number} chatId - Conversación calificada.
+   * @param {number} rating - Calificación recibida.
+   * @param {string} feedback - Comentario opcional.
+   * @param {number} companyId - Empresa propietaria.
+   * @returns {Promise<Object|null>} Conversación actualizada.
+   */
   async submitSurvey(chatId, rating, feedback, companyId) {
     const tenantId = requireTenant(companyId);
     await db.query(
@@ -199,6 +309,13 @@ class ChatRepository {
     return this.findById(chatId, tenantId);
   }
 
+  /**
+   * Lista conversaciones cerradas visibles para un agente o rol global.
+   * @param {number} agentId - Agente consultado.
+   * @param {number} companyId - Empresa propietaria.
+   * @param {boolean} [companyWide=false] - Incluye todos los agentes.
+   * @returns {Promise<Object[]>} Historial de conversaciones.
+   */
   async findClosedByAgentId(agentId, companyId, companyWide = false) {
     const tenantId = requireTenant(companyId);
     const result = await db.query(
@@ -215,12 +332,22 @@ class ChatRepository {
     return result.rows.map((row) => this._mapChatWithMetrics(row));
   }
 
+  /**
+   * Convierte una fila con métricas agregadas al modelo de salida.
+   * @param {Object} row - Fila devuelta por PostgreSQL.
+   * @returns {Object|null} Conversación normalizada.
+   */
   _mapChatWithMetrics(row) {
     const chat = this._mapChat(row);
     if (chat) { chat.firstResponseSeconds = row.first_response_seconds; chat.durationSeconds = row.duration_seconds; }
     return chat;
   }
 
+  /**
+   * Convierte una fila de PostgreSQL al formato público de conversación.
+   * @param {Object} row - Fila devuelta por PostgreSQL.
+   * @returns {Object|null} Conversación normalizada.
+   */
   _mapChat(row) {
     if (!row) return null;
     return {

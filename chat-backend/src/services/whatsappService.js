@@ -1,5 +1,11 @@
 const https = require('https');
 
+/**
+ * Extrae y valida la configuración necesaria para llamar a Meta.
+ * @param {Object} connection - Conexión con credenciales descifradas.
+ * @returns {Object} Token, teléfono y versión de Graph.
+ * @throws {Error} Si faltan credenciales.
+ */
 function getConfig(connection) {
   if (!connection?.accessToken || !connection?.phoneNumberId) {
     throw new Error('WhatsApp connection is not configured');
@@ -11,6 +17,12 @@ function getConfig(connection) {
   };
 }
 
+/**
+ * Ejecuta una solicitud HTTPS y procesa una respuesta JSON.
+ * @param {Object} options - Método, host, ruta, cuerpo y encabezados.
+ * @returns {Promise<Object>} Respuesta JSON exitosa.
+ * @throws {Error} Si hay un error de red, formato o estado HTTP.
+ */
 function requestJson({ method, hostname, path, body, headers }) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
@@ -54,6 +66,11 @@ function requestJson({ method, hostname, path, body, headers }) {
   });
 }
 
+/**
+ * Ejecuta una solicitud HTTPS conservando la respuesta binaria.
+ * @param {Object} options - Método, host, ruta, cuerpo y encabezados.
+ * @returns {Promise<{statusCode: number, body: Buffer}>} Respuesta sin procesar.
+ */
 function requestRaw({ method, hostname, path, body, headers }) {
   return new Promise((resolve, reject) => {
     const options = {
@@ -83,6 +100,11 @@ function requestRaw({ method, hostname, path, body, headers }) {
   });
 }
 
+/**
+ * Construye un cuerpo multipart para cargar archivos a Meta.
+ * @param {Object} data - Campos y archivos de la solicitud.
+ * @returns {{body: Buffer, boundary: string}} Cuerpo y delimitador multipart.
+ */
 function buildMultipartBody({ fields, files }) {
   const boundary = `----whatsapp-boundary-${Date.now()}`;
   const chunks = [];
@@ -115,6 +137,12 @@ function buildMultipartBody({ fields, files }) {
   return { body: Buffer.concat(chunks), boundary };
 }
 
+/**
+ * Envía un mensaje de texto mediante WhatsApp Cloud API.
+ * @param {Object} connection - Conexión con Meta.
+ * @param {Object} message - Destinatario, texto y respuesta opcional.
+ * @returns {Promise<string|null>} Identificador asignado por Meta.
+ */
 async function sendText(connection, { to, text, replyToMessageId }) {
   const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
 
@@ -142,6 +170,12 @@ async function sendText(connection, { to, text, replyToMessageId }) {
   return response?.messages?.[0]?.id || null;
 }
 
+/**
+ * Obtiene la URL temporal y metadatos de un archivo de WhatsApp.
+ * @param {Object} connection - Conexión con Meta.
+ * @param {string} mediaId - Identificador del archivo.
+ * @returns {Promise<Object>} Metadatos entregados por Meta.
+ */
 async function getMediaInfo(connection, mediaId) {
   const { accessToken, graphVersion } = getConfig(connection);
   const response = await requestJson({
@@ -155,6 +189,12 @@ async function getMediaInfo(connection, mediaId) {
   return response;
 }
 
+/**
+ * Descarga un archivo protegido desde una URL autorizada de Meta.
+ * @param {Object} connection - Conexión con Meta.
+ * @param {string} url - URL temporal del archivo.
+ * @returns {Promise<Buffer>} Contenido binario.
+ */
 function downloadMedia(connection, url) {
   const { accessToken } = getConfig(connection);
   return new Promise((resolve, reject) => {
@@ -181,6 +221,12 @@ function downloadMedia(connection, url) {
   });
 }
 
+/**
+ * Envía un archivo remoto mediante WhatsApp Cloud API.
+ * @param {Object} connection - Conexión con Meta.
+ * @param {Object} message - Destinatario, tipo, URL y metadatos.
+ * @returns {Promise<string|null>} Identificador asignado por Meta.
+ */
 async function sendMedia(connection, { to, type, url, caption, filename, replyToMessageId }) {
   const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
 
@@ -219,6 +265,12 @@ async function sendMedia(connection, { to, type, url, caption, filename, replyTo
   return response?.messages?.[0]?.id || null;
 }
 
+/**
+ * Carga un archivo binario al almacenamiento temporal de WhatsApp.
+ * @param {Object} connection - Conexión con Meta.
+ * @param {Object} file - Contenido, tipo MIME y nombre.
+ * @returns {Promise<string>} Identificador del archivo cargado.
+ */
 async function uploadMedia(connection, { buffer, mimeType, filename }) {
   const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
 
@@ -266,6 +318,12 @@ async function uploadMedia(connection, { buffer, mimeType, filename }) {
   throw error;
 }
 
+/**
+ * Envía audio previamente cargado, opcionalmente como nota de voz.
+ * @param {Object} connection - Conexión con Meta.
+ * @param {Object} message - Destinatario, archivo y contexto.
+ * @returns {Promise<string|null>} Identificador asignado por Meta.
+ */
 async function sendAudioById(connection, { to, mediaId, replyToMessageId, voice }) {
   const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
   if (!mediaId) {
@@ -299,6 +357,12 @@ async function sendAudioById(connection, { to, mediaId, replyToMessageId, voice 
   return response?.messages?.[0]?.id || null;
 }
 
+/**
+ * Envía una plantilla aprobada fuera de la ventana de atención.
+ * @param {Object} connection - Conexión con Meta.
+ * @param {Object} message - Destinatario, plantilla, idioma y componentes.
+ * @returns {Promise<string|null>} Identificador asignado por Meta.
+ */
 async function sendTemplate(connection, { to, name, languageCode, components }) {
   const { accessToken, phoneNumberId, graphVersion } = getConfig(connection);
   if (!name || !languageCode) {

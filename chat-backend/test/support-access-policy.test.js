@@ -1,3 +1,10 @@
+/**
+ * @file support-access-policy.test.js
+ * @description Pruebas de la política de acceso a chats de soporte.
+ * Los tests están escritos en español. Verifican que canManageChat y canClaimChat
+ * respetan la empresa, el canal asignado, el rol del usuario y la cola de
+ * departamento dentro del mismo tenant.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 

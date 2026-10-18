@@ -1,6 +1,11 @@
 const db = require('../database/postgres');
 
 class GroupMessageRepository {
+  /**
+   * Guarda un mensaje enviado a un grupo.
+   * @param {Object} data - Grupo, autor y contenido.
+   * @returns {Promise<Object>} Mensaje creado.
+   */
   async create({ groupId, userId, content }) {
     const result = await db.query(
       `INSERT INTO group_messages (group_id, user_id, content)
@@ -27,6 +32,12 @@ class GroupMessageRepository {
     };
   }
 
+  /**
+   * Obtiene los mensajes recientes de un grupo.
+   * @param {number} groupId - Identificador del grupo.
+   * @param {number} [limit=100] - Cantidad máxima de mensajes.
+   * @returns {Promise<Object[]>} Mensajes ordenados cronológicamente.
+   */
   async getRecent(groupId, limit = 100) {
     const result = await db.query(
       `SELECT gm.id, gm.group_id, gm.user_id AS sender_id,

@@ -1,7 +1,18 @@
+/**
+ * Crea un limitador de solicitudes en memoria por ventana temporal.
+ * @param {Object} options - Ventana, límite, clave y mensaje de error.
+ * @returns {Function} Pre-handler asíncrono de Fastify.
+ */
 function createRateLimit({ windowMs, max, key, errorMessage = 'Too many requests' }) {
   const buckets = new Map();
   let requestsSinceCleanup = 0;
 
+  /**
+   * Registra el intento y rechaza las solicitudes que superen el límite.
+   * @param {Object} request - Solicitud de Fastify.
+   * @param {Object} reply - Respuesta de Fastify.
+   * @returns {Promise<void|Object>}
+   */
   return async function rateLimit(request, reply) {
     const now = Date.now();
     requestsSinceCleanup += 1;

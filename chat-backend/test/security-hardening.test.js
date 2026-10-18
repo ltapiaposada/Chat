@@ -1,3 +1,10 @@
+/**
+ * @file security-hardening.test.js
+ * @description Pruebas de las cabeceras de seguridad y la configuración de producción.
+ * Los tests están escritos en español. Cubren las cabeceras defensivas del navegador,
+ * el límite de tasa (rate limit) con cuota restante y el rechazo de configuraciones
+ * de producción inseguras.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Fastify = require('fastify');

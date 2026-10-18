@@ -1,3 +1,12 @@
+/**
+ * @file Migración inicial: crea las tablas `companies` y `channels` con sus
+ * columnas, restricciones e índices. Inserta la empresa por defecto
+ * (`default-company`) y los canales de demostración (`demo`, `orka`).
+ * Agrega las columnas `company_id` y `channel_id` a la tabla `users`,
+ * vinculándolas con claves foráneas, y crea los índices necesarios para
+ * consultas por tenant.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     CREATE TABLE IF NOT EXISTS companies (

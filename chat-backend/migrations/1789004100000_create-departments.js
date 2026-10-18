@@ -1,3 +1,14 @@
+/**
+ * @file Crea las tablas `departments`, `department_channels` y
+ * `agent_departments` para el sistema de departamentos. La tabla
+ * `departments` incluye estrategias de enrutamiento (`broadcast`,
+ * `least_busy`, `direct`) y de respaldo, así como un agente por defecto.
+ * Las tablas de unión vinculan departamentos con canales y agentes.
+ * También se agregan las columnas `department_id` e `intention` a la
+ * tabla `chats`, junto con los índices necesarios para consultas por
+ * empresa, departamento y estado.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     CREATE TABLE departments (

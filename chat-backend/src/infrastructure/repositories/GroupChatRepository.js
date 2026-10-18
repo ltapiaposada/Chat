@@ -1,6 +1,12 @@
 const db = require('../database/postgres');
 
 class GroupChatRepository {
+  /**
+   * Crea un grupo y registra sus integrantes en una transacción.
+   * @param {Object} data - Nombre, creador y miembros iniciales.
+   * @returns {Promise<Object>} Grupo creado.
+   * @throws {Error} Si la transacción no puede completarse.
+   */
   async create({ name, createdBy, memberIds = [] }) {
     const result = await db.query(
       `INSERT INTO group_chats (name, created_by)
@@ -32,6 +38,11 @@ class GroupChatRepository {
     };
   }
 
+  /**
+   * Agrega integrantes a un grupo y evita asignaciones duplicadas.
+   * @param {Object} data - Grupo, miembros y agente que realiza la acción.
+   * @returns {Promise<Object[]>} Integrantes agregados.
+   */
   async addMembers({ groupId, memberIds = [], addedBy }) {
     const uniqueMemberIds = Array.from(new Set(memberIds));
     if (uniqueMemberIds.length === 0) return 0;
@@ -48,6 +59,11 @@ class GroupChatRepository {
     return result.rowCount || 0;
   }
 
+  /**
+   * Lista los grupos a los que pertenece un usuario.
+   * @param {number} userId - Identificador del usuario.
+   * @returns {Promise<Object[]>} Grupos visibles.
+   */
   async listForUser(userId) {
     const result = await db.query(
       `SELECT g.id, g.name, g.created_by, g.created_at,
@@ -82,6 +98,11 @@ class GroupChatRepository {
     return Array.from(byGroup.values());
   }
 
+  /**
+   * Lista los integrantes de un grupo.
+   * @param {number} groupId - Identificador del grupo.
+   * @returns {Promise<Object[]>} Usuarios integrantes.
+   */
   async getMembers(groupId) {
     const result = await db.query(
       `SELECT u.id, u.name
@@ -97,6 +118,12 @@ class GroupChatRepository {
     }));
   }
 
+  /**
+   * Comprueba la pertenencia de un usuario a un grupo.
+   * @param {number} groupId - Identificador del grupo.
+   * @param {number} userId - Identificador del usuario.
+   * @returns {Promise<boolean>} Resultado de pertenencia.
+   */
   async isMember(groupId, userId) {
     const result = await db.query(
       `SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2`,
@@ -105,6 +132,11 @@ class GroupChatRepository {
     return result.rows.length > 0;
   }
 
+  /**
+   * Busca un grupo por su identificador.
+   * @param {number} groupId - Identificador del grupo.
+   * @returns {Promise<Object|null>} Grupo encontrado.
+   */
   async getById(groupId) {
     const result = await db.query(
       `SELECT id, name, created_by, created_at
@@ -122,6 +154,11 @@ class GroupChatRepository {
     };
   }
 
+  /**
+   * Retira un integrante de un grupo.
+   * @param {Object} data - Grupo e integrante que se desea retirar.
+   * @returns {Promise<Object|null>} Asignación eliminada.
+   */
   async removeMember({ groupId, memberId }) {
     const result = await db.query(
       `DELETE FROM group_members

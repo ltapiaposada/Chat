@@ -1,3 +1,10 @@
+/**
+ * @file handler-registration.test.js
+ * @description Pruebas del registro de handlers de WebSocket.
+ * Los tests están escritos en español. Verifican que los módulos
+ * supportChatHandlers, collaborationHandlers y globalPresenceHandlers registran
+ * exactamente los eventos esperados en un socket falso.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
@@ -5,6 +12,10 @@ const { registerSupportChatHandlers } = require('../src/infrastructure/websocket
 const { registerCollaborationHandlers } = require('../src/infrastructure/websocket/handlers/collaborationHandlers');
 const { registerGlobalPresenceHandlers } = require('../src/infrastructure/websocket/handlers/globalPresenceHandlers');
 
+/**
+ * Crea un socket falso que registra los handlers por evento en un Map.
+ * @returns {{ handlers: Map<string, Function>, on: Function, emit: Function, join: Function, leave: Function, to: Function }} Socket simulado.
+ */
 function createFakeSocket() {
   const handlers = new Map();
   return {

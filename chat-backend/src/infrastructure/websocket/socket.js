@@ -11,15 +11,27 @@ const { registerSupportChatHandlers } = require('./handlers/supportChatHandlers'
 const { registerGlobalPresenceHandlers } = require('./handlers/globalPresenceHandlers');
 const { registerCollaborationHandlers } = require('./handlers/collaborationHandlers');
 
+/**
+ * Servicio singleton que gestiona las conexiones WebSocket mediante Socket.IO.
+ * Administra autenticación de usuarios, salas de chat, presencia en línea
+ * y retransmisión de eventos entre clientes y agentes.
+ */
 class SocketService {
   constructor() {
     this.io = null;
-    // Only keep in-memory maps for socket connections (not persisted data)
-    this.users = new Map(); // Map of socketId -> { oduserId, role, name }
-    this.agents = new Map(); // Map of agentId -> socketId
-    this.clients = new Map(); // Map of clientId -> socketId
+    // Mantener solo mapas en memoria para conexiones socket (no se persisten)
+    this.users = new Map(); // Mapa de socketId -> { oduserId, role, name }
+    this.agents = new Map(); // Mapa de agentId -> socketId
+    this.clients = new Map(); // Mapa de clientId -> socketId
   }
 
+  /**
+   * Verifica si el socket tiene permiso para acceder al chat según el rol esperado.
+   * @param {Object} socket - Instancia del socket de conexión.
+   * @param {Object} chat - Objeto del chat a verificar.
+   * @param {string} expectedRole - Rol esperado ('client' o rol de agente).
+   * @returns {boolean} true si el acceso está permitido.
+   */
   ensureSupportChatAccess(socket, chat, expectedRole) {
     const allowed = expectedRole === 'client'
       ? supportAccessPolicy.canViewChat(socket, chat)
@@ -28,6 +40,10 @@ class SocketService {
     return allowed;
   }
 
+  /**
+   * Inicializa el servidor Socket.IO con la configuración CORS y transportes.
+   * @param {Object} server - Instancia del servidor HTTP de Fastify.
+   */
   async initialize(server) {
     this.io = new Server(server, {
       cors: {
@@ -38,18 +54,22 @@ class SocketService {
       transports: ['websocket', 'polling']
     });
 
-    // Ensure global messages table exists
+    // Asegurar que la tabla de mensajes globales exista
     await globalMessageRepository.ensureTable();
 
     this.setupEventHandlers();
     console.log('✅ Socket.IO initialized');
   }
 
+  /**
+   * Configura los manejadores de eventos principales de Socket.IO,
+   * incluyendo conexión, autenticación y registro de handlers de dominio.
+   */
   setupEventHandlers() {
     this.io.on('connection', (socket) => {
       console.log(`🔌 New client connected: ${socket.id}`);
 
-      // Handle user authentication with role
+      /** Manejar autenticación del usuario con rol */
       socket.on('authenticate', async ({ token }) => {
         let auth;
         try {
@@ -90,9 +110,9 @@ class SocketService {
           for (const assignedDepartmentId of departmentIds) {
             socket.join(`agents:${companyId}:department:${assignedDepartmentId}`);
           }
-          // Update is_online in database
+          // Actualizar estado is_online en la base de datos
           await userRepository.updateOnlineStatus(userId, true);
-          // Notify global chat about new online agent
+          // Notificar al chat global sobre el nuevo agente en línea
           this.broadcastGlobalUsers();
           this.broadcastAgentPresence();
         } else if (role === 'client') {
@@ -144,7 +164,9 @@ class SocketService {
     });
   }
 
-  // Broadcast online users to global chat (per company)
+  /**
+   * Emite la lista de usuarios en línea al chat global de cada empresa.
+   */
   broadcastGlobalUsers() {
     const onlineUsersByCompany = new Map();
     for (const [socketId, userInfo] of this.users.entries()) {
@@ -164,6 +186,9 @@ class SocketService {
     }
   }
 
+  /**
+   * Emite la presencia de agentes en línea a la sala de agentes de cada empresa.
+   */
   broadcastAgentPresence() {
     const agentsByCompany = new Map();
     for (const [socketId, userInfo] of this.users.entries()) {
@@ -177,26 +202,42 @@ class SocketService {
     }
   }
 
-  // Method to emit to a specific room
+  /**
+   * Emite un evento a una sala específica.
+   * @param {string} roomId - Identificador de la sala.
+   * @param {string} event - Nombre del evento a emitir.
+   * @param {Object} data - Datos del evento.
+   */
   emitToRoom(roomId, event, data) {
     this.io.to(`room:${roomId}`).emit(event, data);
   }
 
-  // Method to emit to a specific user
+  /**
+   * Emite un evento a un usuario específico por su ID.
+   * @param {string} userId - Identificador del usuario.
+   * @param {string} event - Nombre del evento a emitir.
+   * @param {Object} data - Datos del evento.
+   */
   emitToUser(userId, event, data) {
     this.io.to(`user:${userId}`).emit(event, data);
   }
 
-  // Get all connected users
+  /**
+   * Retorna la lista de todos los usuarios conectados actualmente.
+   * @returns {Array} Arreglo con la información de cada usuario conectado.
+   */
   getConnectedUsers() {
     return Array.from(this.users.values());
   }
 
-  // Get socket instance
+  /**
+   * Retorna la instancia del servidor Socket.IO.
+   * @returns {Object} Instancia de Server de Socket.IO.
+   */
   getIO() {
     return this.io;
   }
 }
 
-// Export singleton instance
+// Exportar instancia singleton
 module.exports = new SocketService();

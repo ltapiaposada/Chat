@@ -1,3 +1,13 @@
+/**
+ * @file Crea la tabla `whatsapp_connections` para almacenar las conexiones
+ * de WhatsApp Business por canal, incluyendo credenciales encriptadas
+ * (`access_token`, `verify_token`, `app_secret`), identificadores del
+ * proveedor Meta Cloud, y un `webhook_key` único. Agrega la columna
+ * `whatsapp_connection_id` a la tabla `messages` con un índice único que
+ * previene mensajes duplicados por conexión. Crea también un índice para
+ * consultas de conexiones por empresa y estado.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     CREATE TABLE whatsapp_connections (

@@ -1,3 +1,12 @@
+/**
+ * @file Crea la tabla de unión `agent_channels` que vincula agentes con los
+ * canales a los que están asignados dentro de cada empresa. La tabla incluye
+ * claves foráneas compuestas hacia `users` y `channels`, un índice para
+ * consultas por empresa y canal, y se inicializa insertando todos los
+ * usuarios con rol de agente, supervisor o admin en los canales activos
+ * de su empresa.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     CREATE TABLE agent_channels (

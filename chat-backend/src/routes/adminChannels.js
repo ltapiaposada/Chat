@@ -5,19 +5,38 @@ const socketService = require('../infrastructure/websocket/socket');
 const whatsappConnectionRepository = require('../infrastructure/repositories/WhatsAppConnectionRepository');
 const publicUrlService = require('../services/publicUrlService');
 
+/**
+ * Genera la URL pública completa del webhook de WhatsApp.
+ * @param {string} webhookKey - Clave única del webhook de la conexión.
+ * @returns {string|null} URL pública completa o null si no hay base URL configurada.
+ */
 function publicWebhookUrl(webhookKey) {
   const baseUrl = publicUrlService.getPublicUrl();
   return baseUrl ? `${baseUrl}/api/whatsapp/webhook/${webhookKey}` : null;
 }
 
+/**
+ * Genera una clave pública única para un canal.
+ * @returns {string} Clave pública con formato "ch_" seguido de UUID sin guiones.
+ */
 function publicKey() {
   return `ch_${crypto.randomUUID().replaceAll('-', '')}`;
 }
 
+/**
+ * Genera un secreto de firma aleatorio de 32 bytes en formato hexadecimal.
+ * @returns {string} Secreto de firma en formato hex.
+ */
 function signingSecret() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+/**
+ * Normaliza y valida una lista de orígenes permitidos.
+ * @param {string[]} input - Lista de orígenes en formato URL.
+ * @returns {string[]} Lista de orígenes normalizados (sin duplicados).
+ * @throws {Error} Si el input no es un array o contiene orígenes inválidos.
+ */
 function normalizeOrigins(input) {
   if (!Array.isArray(input)) throw new Error('allowedOrigins debe ser una lista');
   return [...new Set(input.map((value) => {
@@ -29,6 +48,15 @@ function normalizeOrigins(input) {
   }))];
 }
 
+/**
+ * Registra una entrada en el log de auditoría de administración.
+ * @param {Object} db - Conexión a la base de datos.
+ * @param {Object} auth - Información de autenticación del usuario.
+ * @param {number} channelId - ID del canal afectado o null.
+ * @param {string} action - Nombre de la acción auditada.
+ * @param {Object} [metadata={}] - Metadatos adicionales de la acción.
+ * @returns {Promise<void>}
+ */
 async function audit(db, auth, channelId, action, metadata = {}) {
   await db.query(
     `INSERT INTO admin_audit_logs (company_id, actor_id, channel_id, action, metadata)
@@ -37,10 +65,18 @@ async function audit(db, auth, channelId, action, metadata = {}) {
   );
 }
 
+/**
+ * Registra las rutas de administración de canales, agentes y auditoría.
+ * Requiere rol 'admin' en todas las rutas.
+ * @param {Object} fastify - Instancia de Fastify.
+ * @param {Object} options - Opciones del plugin, incluye la conexión db.
+ * @returns {Promise<void>}
+ */
 module.exports = async function adminChannelRoutes(fastify, options) {
   const db = options.db;
   const adminOnly = requireRole('admin');
 
+  // GET /api/admin/channels — Lista todos los canales de la empresa con sus conexiones WhatsApp, agentes asignados y actividad reciente. Rol: admin.
   fastify.get('/api/admin/channels', { preHandler: adminOnly }, async (request) => {
     const result = await db.query(
       `SELECT c.id, c.name, c.slug, c.type, c.public_key, c.allowed_origins,
@@ -98,6 +134,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     }));
   });
 
+  // POST /api/admin/channels — Crea un nuevo canal (web o whatsapp) con su clave pública y secreto de firma. Efectos: registro de auditoría. Rol: admin.
   fastify.post('/api/admin/channels', { preHandler: adminOnly }, async (request, reply) => {
     const body = request.body || {};
     const name = String(body.name || '').trim();
@@ -133,6 +170,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     return reply.status(201).send({ channel: result.rows[0], signingSecret: secret });
   });
 
+  // PATCH /api/admin/channels/:id — Actualiza nombre, orígenes, modo de autenticación o estado de un canal. Efectos: registro de auditoría. Rol: admin.
   fastify.patch('/api/admin/channels/:id', { preHandler: adminOnly }, async (request, reply) => {
     const id = Number(request.params.id);
     const body = request.body || {};
@@ -168,6 +206,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     return { channel: result.rows[0] };
   });
 
+  // DELETE /api/admin/channels/:id — Elimina lógicamente un canal, desactivándolo y deshabilitando su conexión WhatsApp. Efectos: registro de auditoría. Rol: admin.
   fastify.delete('/api/admin/channels/:id', { preHandler: adminOnly }, async (request, reply) => {
     const id = Number(request.params.id);
     if (!Number.isInteger(id) || id <= 0) return reply.status(400).send({ error: 'Canal inválido' });
@@ -192,6 +231,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     return reply.status(204).send();
   });
 
+  // POST /api/admin/channels/:id/rotate-credentials — Genera nuevas credenciales (clave pública y secreto), incrementa la versión y elimina nonces de assertion. Efectos: registro de auditoría. Rol: admin.
   fastify.post('/api/admin/channels/:id/rotate-credentials', { preHandler: adminOnly }, async (request, reply) => {
     const id = Number(request.params.id);
     const key = publicKey();
@@ -211,6 +251,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     return { channel: result.rows[0], signingSecret: secret };
   });
 
+  // PUT /api/admin/channels/:id/whatsapp — Crea o actualiza la conexión WhatsApp de un canal con credenciales de Meta Cloud API. Efectos: registro de auditoría, posibles eventos de rotación de credenciales. Rol: admin.
   fastify.put('/api/admin/channels/:id/whatsapp', { preHandler: adminOnly }, async (request, reply) => {
     const channelId = Number(request.params.id);
     const body = request.body || {};
@@ -272,6 +313,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     }
   });
 
+  // POST /api/admin/channels/:id/whatsapp/disconnect — Desactiva la conexión WhatsApp de un canal. Efectos: registro de auditoría. Rol: admin.
   fastify.post('/api/admin/channels/:id/whatsapp/disconnect', { preHandler: adminOnly }, async (request, reply) => {
     const channelId = Number(request.params.id);
     const connection = await whatsappConnectionRepository.setStatus(
@@ -282,6 +324,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     return { connection };
   });
 
+  // GET /api/admin/agents — Lista los agentes, supervisores y administradores de la empresa con sus canales asignados. Rol: admin.
   fastify.get('/api/admin/agents', { preHandler: adminOnly }, async (request) => {
     const result = await db.query(
       `SELECT u.id, u.name, u.email, u.role, u.is_online, u.is_active,
@@ -301,6 +344,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     }));
   });
 
+  // POST /api/admin/agents — Crea un agente/supervisor/administrador con contraseña hasheada y asignación de canales. Efectos: registro de auditoría. Rol: admin.
   fastify.post('/api/admin/agents', { preHandler: adminOnly }, async (request, reply) => {
     const body = request.body || {};
     const name = String(body.name || '').trim();
@@ -353,6 +397,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     } finally { client.release(); }
   });
 
+  // PATCH /api/admin/agents/:id — Actualiza nombre, rol, contraseña, estado activo y canales asignados de un agente. Efectos: registro de auditoría. Rol: admin.
   fastify.patch('/api/admin/agents/:id', { preHandler: adminOnly }, async (request, reply) => {
     const agentId = Number(request.params.id);
     const body = request.body || {};
@@ -412,6 +457,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     } finally { client.release(); }
   });
 
+  // PUT /api/admin/channels/:id/agents — Reemplaza completamente la lista de agentes asignados a un canal. Efectos: registro de auditoría. Rol: admin.
   fastify.put('/api/admin/channels/:id/agents', { preHandler: adminOnly }, async (request, reply) => {
     const channelId = Number(request.params.id);
     const agentIds = [...new Set((request.body?.agentIds || []).map(Number))];
@@ -461,6 +507,7 @@ module.exports = async function adminChannelRoutes(fastify, options) {
     }
   });
 
+  // GET /api/admin/audit — Obtiene las últimas 50 entradas de auditoría de la empresa con nombre del actor y del canal. Rol: admin.
   fastify.get('/api/admin/audit', { preHandler: adminOnly }, async (request) => {
     const result = await db.query(
       `SELECT a.id, a.action, a.channel_id, a.metadata, a.created_at,

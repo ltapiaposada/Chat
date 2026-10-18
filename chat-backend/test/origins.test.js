@@ -1,3 +1,10 @@
+/**
+ * @file origins.test.js
+ * @description Pruebas de validación de orígenes CORS.
+ * Los tests están escritos en español. Verifican la fusión de CLIENT_URL y
+ * CORS_ORIGINS, el bloqueo de orígenes desconocidos, el comportamiento local en
+ * desarrollo y los previews de Vercel.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 

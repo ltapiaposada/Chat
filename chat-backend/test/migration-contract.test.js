@@ -1,3 +1,10 @@
+/**
+ * @file migration-contract.test.js
+ * @description Pruebas que aseguran el contrato de las migraciones recientes.
+ * Los tests están escritos en español. Constatan que el servidor, el widget del
+ * frontend y las migraciones de departamentos mantienen invariantes esperadas
+ * (llave de canal obligatoria, orígenes configurados y contexto por empresa).
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

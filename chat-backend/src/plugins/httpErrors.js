@@ -1,3 +1,8 @@
+/**
+ * Convierte errores de validación de Fastify en detalles públicos.
+ * @param {Object} error - Error recibido.
+ * @returns {Object[]} Campos inválidos.
+ */
 function validationDetails(error) {
   if (!Array.isArray(error?.validation)) return [];
 
@@ -7,7 +12,13 @@ function validationDetails(error) {
   }));
 }
 
+/**
+ * Registra manejadores globales de errores y rutas inexistentes.
+ * @param {Object} fastify - Instancia del servidor.
+ * @returns {void}
+ */
 function registerHttpErrorHandling(fastify) {
+  // Evita exponer detalles internos y conserva información útil de validación.
   fastify.setErrorHandler((error, request, reply) => {
     if (reply.sent) return;
 
@@ -33,6 +44,7 @@ function registerHttpErrorHandling(fastify) {
     });
   });
 
+  // Devuelve una respuesta uniforme para rutas no registradas.
   fastify.setNotFoundHandler((request, reply) => {
     return reply.status(404).send({ error: 'Route not found' });
   });

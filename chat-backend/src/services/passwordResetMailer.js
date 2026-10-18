@@ -1,5 +1,11 @@
 const nodemailer = require('nodemailer');
 
+/**
+ * Construye y valida la configuración SMTP para recuperación de contraseña.
+ * @param {NodeJS.ProcessEnv|Object} [env=process.env] - Variables de configuración.
+ * @returns {Object|null} Configuración de transporte o `null` si está incompleta.
+ * @throws {Error} Si la URL pública de recuperación no es segura.
+ */
 function configuration(env = process.env) {
   if (!env.SMTP_HOST || !env.SMTP_FROM || !(env.PASSWORD_RESET_URL || env.CLIENT_URL)) return null;
   const url = new URL(env.PASSWORD_RESET_URL || env.CLIENT_URL);
@@ -22,7 +28,18 @@ function configuration(env = process.env) {
 }
 
 module.exports = {
+  /**
+   * Comprueba si el correo de recuperación puede utilizarse con seguridad.
+   * @returns {boolean} Estado de la configuración SMTP.
+   */
   isConfigured() { try { return Boolean(configuration()); } catch { return false; } },
+  /**
+   * Envía al usuario un enlace de un solo uso para cambiar su contraseña.
+   * @param {string} email - Destinatario del correo.
+   * @param {string} token - Token temporal de recuperación.
+   * @returns {Promise<void>}
+   * @throws {Error} Si SMTP no está configurado o el proveedor rechaza el envío.
+   */
   async sendReset(email, token) {
     const config = configuration();
     if (!config) throw new Error('SMTP is not configured');

@@ -1,3 +1,9 @@
+/**
+ * @file Datos de prueba para escenarios de multitenancy.
+ * Define dos empresas aisladas (A y B) con sus canales, agentes, clientes y conversaciones.
+ * Cada objeto está congelado (`Object.freeze`) para impedir mutaciones accidentales durante las pruebas.
+ */
+
 const companyA = Object.freeze({ id: 101, name: 'Empresa A' });
 const companyB = Object.freeze({ id: 202, name: 'Empresa B' });
 

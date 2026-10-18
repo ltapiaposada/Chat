@@ -6,6 +6,7 @@ let tunnelUrl = null;
 let starting = null;
 let webhookProxy = null;
 
+/** @param {string} value - URL candidata. @returns {string|null} Origen HTTPS normalizado. */
 function normalizePublicUrl(value) {
   const candidate = String(value || '').trim().replace(/\/$/, '');
   if (!candidate) return null;
@@ -17,20 +18,34 @@ function normalizePublicUrl(value) {
   }
 }
 
+/** @param {string} output - Salida de Cloudflare Tunnel. @returns {string|null} URL pública encontrada. */
 function extractTunnelUrl(output) {
   return String(output || '').match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i)?.[0] || null;
 }
 
+/** @returns {string|null} URL pública activa para construir webhooks. */
 function getPublicUrl() {
   return normalizePublicUrl(process.env.PUBLIC_API_URL) || tunnelUrl;
 }
 
+/**
+ * Limita el proxy local a solicitudes válidas del webhook de WhatsApp.
+ * @param {string} method - Método HTTP.
+ * @param {string} requestUrl - Ruta solicitada.
+ * @returns {boolean} Decisión de acceso.
+ */
 function isAllowedWebhookRequest(method, requestUrl) {
   const pathname = String(requestUrl || '').split('?')[0];
   return ['GET', 'POST'].includes(String(method || '').toUpperCase()) &&
     /^\/api\/whatsapp\/webhook\/[A-Za-z0-9_-]+$/.test(pathname);
 }
 
+/**
+ * Inicia un proxy local restringido que reenvía webhooks al backend.
+ * @param {number} targetPort - Puerto del backend.
+ * @param {Object} logger - Registrador de eventos.
+ * @returns {Promise<number>} Puerto asignado al proxy.
+ */
 function startWebhookProxy(targetPort, logger) {
   return new Promise((resolve, reject) => {
     webhookProxy = http.createServer((request, response) => {
@@ -64,6 +79,11 @@ function startWebhookProxy(targetPort, logger) {
   });
 }
 
+/**
+ * Inicia un túnel HTTPS de desarrollo y publica su URL en el proceso.
+ * @param {Object} options - Puerto local y registrador.
+ * @returns {Promise<string|null>} URL pública o `null` cuando se deshabilita.
+ */
 function startDevelopmentTunnel({ port, logger = console } = {}) {
   if (getPublicUrl()) return Promise.resolve(getPublicUrl());
   if (String(process.env.NODE_ENV).toLowerCase() === 'production') return Promise.resolve(null);
@@ -114,6 +134,10 @@ function startDevelopmentTunnel({ port, logger = console } = {}) {
   return starting;
 }
 
+/**
+ * Detiene el túnel y proxy locales si están activos.
+ * @returns {void}
+ */
 function stopDevelopmentTunnel() {
   if (tunnelProcess) tunnelProcess.kill('SIGTERM');
   if (webhookProxy) webhookProxy.close();

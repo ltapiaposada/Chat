@@ -1,3 +1,11 @@
+/**
+ * @file Crea la tabla `admin_audit_logs` para registrar acciones de
+ * administración realizadas por usuarios dentro de cada empresa. Almacena
+ * el identificador del actor, el canal afectado, la acción realizada y
+ * metadatos adicionales en formato JSONB. Incluye claves foráneas
+ * compuestas y un índice ordenado por fecha de creación descendente.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     CREATE TABLE admin_audit_logs (

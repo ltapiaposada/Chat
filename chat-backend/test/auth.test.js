@@ -1,3 +1,11 @@
+/**
+ * @file auth.test.js
+ * @description Pruebas de autenticación JWT (createAuthToken/verifyAuthToken)
+ * y de los plugins de autorización HTTP.
+ * Los tests están escritos en español. Cubren el roundtrip del token, el
+ * contexto de empresa/canal, el rechazo de tokens manipulados, vencidos o sin
+ * contexto de tenant, y la extracción del token de la petición.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 

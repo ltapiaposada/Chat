@@ -1,3 +1,9 @@
+/**
+ * @file Crea el canal de tipo `whatsapp` para la empresa por defecto
+ * (`default-company`). Inserta un registro con slug `whatsapp`,
+ * modo de autenticación `authenticated` y sin orígenes permitidos.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     INSERT INTO channels (company_id, name, slug, type, authentication_mode, allowed_origins)

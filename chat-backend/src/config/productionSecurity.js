@@ -1,3 +1,10 @@
+/**
+ * Valida que la configuración de producción use secretos, orígenes y base de datos seguros.
+ *
+ * @param {NodeJS.ProcessEnv|Object} [env=process.env] - Variables que se desean validar.
+ * @returns {void}
+ * @throws {Error} Si encuentra una o más configuraciones inseguras.
+ */
 function validateProductionConfig(env = process.env) {
   if (env.NODE_ENV !== 'production') return;
   const errors = [];

@@ -1,3 +1,10 @@
+/**
+ * @file admin-channels.test.js
+ * @description Pruebas de la API de gestión de canales del administrador.
+ * Los tests están escritos en español. Verifican la autorización por rol, el
+ * ámbito por empresa de las consultas, la creación/actualización de canales y
+ * la baja lógica que preserva las conversaciones.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Fastify = require('fastify');
@@ -7,10 +14,21 @@ const { createAuthToken } = require('../src/config/auth');
 
 process.env.AUTH_SECRET = 'admin-route-test-secret';
 
+/**
+ * Crea un token de autenticación con el rol y la empresa indicados.
+ * @param {string} role - Rol del usuario ('admin' o 'agent').
+ * @param {number} [companyId=101] - Identificador de la empresa.
+ * @returns {string} Token JWT firmado.
+ */
 function token(role, companyId = 101) {
   return createAuthToken({ id: role === 'admin' ? 1 : 2, role, name: role, company_id: companyId });
 }
 
+/**
+ * Registra las rutas de administración de canales en una instancia de Fastify.
+ * @param {{ query: (sql: string, params: unknown[]) => Promise<{ rows: unknown[] }> }} db - Stub de la base de datos.
+ * @returns {Promise<import('fastify').FastifyInstance>} Aplicación lista para recibir peticiones.
+ */
 async function appWith(db) {
   const app = Fastify();
   await app.register(adminChannelRoutes, { db });

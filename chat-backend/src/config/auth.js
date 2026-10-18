@@ -1,5 +1,11 @@
 const crypto = require('crypto');
 
+/**
+ * Obtiene el secreto utilizado para firmar y validar tokens de autenticación.
+ *
+ * @returns {string} Secreto configurado para la autenticación.
+ * @throws {Error} Si la variable `AUTH_SECRET` no está definida.
+ */
 function getAuthSecret() {
   const secret = process.env.AUTH_SECRET;
   if (!secret) {
@@ -8,18 +14,42 @@ function getAuthSecret() {
   return secret;
 }
 
+/**
+ * Calcula la duración configurada de los tokens de autenticación.
+ *
+ * @returns {number} Tiempo de vida del token en milisegundos.
+ */
 function getTokenTtlMs() {
   return Number(process.env.AUTH_TOKEN_TTL_MS || 7 * 24 * 60 * 60 * 1000);
 }
 
+/**
+ * Codifica un valor usando Base64 compatible con URL.
+ *
+ * @param {string|Buffer} value - Valor que se desea codificar.
+ * @returns {string} Representación codificada en Base64 URL.
+ */
 function toBase64Url(value) {
   return Buffer.from(value).toString('base64url');
 }
 
+/**
+ * Decodifica una cadena Base64 URL como texto UTF-8.
+ *
+ * @param {string} value - Cadena codificada.
+ * @returns {string} Texto decodificado.
+ */
 function fromBase64Url(value) {
   return Buffer.from(value, 'base64url').toString('utf8');
 }
 
+/**
+ * Firma un valor con HMAC SHA-256 usando el secreto de autenticación.
+ *
+ * @param {string} value - Contenido que se desea firmar.
+ * @returns {string} Firma codificada en Base64 URL.
+ * @throws {Error} Si no existe un secreto de autenticación configurado.
+ */
 function sign(value) {
   return crypto
     .createHmac('sha256', getAuthSecret())
@@ -27,6 +57,21 @@ function sign(value) {
     .digest('base64url');
 }
 
+/**
+ * Crea un token JWT firmado para un usuario de la plataforma.
+ *
+ * @param {Object} user - Usuario que iniciará sesión.
+ * @param {number|string} user.id - Identificador del usuario.
+ * @param {string} user.role - Rol autorizado.
+ * @param {string} user.name - Nombre visible.
+ * @param {string} [user.email] - Correo electrónico.
+ * @param {number} [user.companyId] - Empresa en formato de dominio.
+ * @param {number} [user.company_id] - Empresa en formato de persistencia.
+ * @param {number} [user.channelId] - Canal en formato de dominio.
+ * @param {number} [user.channel_id] - Canal en formato de persistencia.
+ * @returns {string} Token JWT firmado.
+ * @throws {Error} Si no existe un secreto de autenticación configurado.
+ */
 function createAuthToken(user) {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const ttlSeconds = Math.floor(getTokenTtlMs() / 1000);
@@ -51,6 +96,13 @@ function createAuthToken(user) {
   return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
+/**
+ * Verifica la estructura, firma, vigencia y contexto empresarial de un token.
+ *
+ * @param {string} token - Token JWT recibido del cliente.
+ * @returns {{userId: number, role: string, name: string, email: (string|null), companyId: number, channelId: (number|null)}} Identidad autenticada.
+ * @throws {Error} Si el token es inválido, está vencido o no contiene empresa.
+ */
 function verifyAuthToken(token) {
   if (!token || typeof token !== 'string') {
     throw new Error('Invalid token format');

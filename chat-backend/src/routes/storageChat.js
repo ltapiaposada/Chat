@@ -59,15 +59,32 @@ const uploadRateLimit = createRateLimit({
   errorMessage: 'Too many upload requests'
 });
 
+/**
+ * Verifica si un tipo MIME corresponde a una imagen.
+ * @param {string} mimeType - Tipo MIME a evaluar.
+ * @returns {boolean} true si comienza con 'image/'.
+ */
 function isImage(mimeType) {
   return mimeType && mimeType.startsWith('image/');
 }
 
+/**
+ * Verifica si un tipo MIME está permitido para subida (imagen o archivo soportado).
+ * @param {string} mimeType - Tipo MIME a evaluar.
+ * @returns {boolean} true si está en la lista de tipos permitidos.
+ */
 function isAllowedMime(mimeType) {
   if (isImage(mimeType)) return ALLOWED_IMAGE_MIME.has(mimeType);
   return ALLOWED_FILE_MIME.has(mimeType);
 }
 
+/**
+ * Determina el tipo de recurso de Cloudinary según el tipo MIME.
+ * @param {string} mimeType - Tipo MIME del archivo.
+ * @param {Object} [options={}] - Opciones adicionales.
+ * @param {boolean} [options.forceRawAudio] - Si true, fuerza 'raw' para audio.
+ * @returns {string} 'image', 'video' o 'raw'.
+ */
 function getResourceType(mimeType, options = {}) {
   if (isImage(mimeType)) return 'image';
   if (mimeType && mimeType.startsWith('audio/')) {
@@ -77,10 +94,21 @@ function getResourceType(mimeType, options = {}) {
   return 'raw';
 }
 
+/**
+ * Verifica si el tipo MIME corresponde a audio WebM.
+ * @param {string} mimeType - Tipo MIME a evaluar.
+ * @returns {boolean} true si comienza con 'audio/webm'.
+ */
 function isWebmAudio(mimeType) {
   return !!mimeType && mimeType.startsWith('audio/webm');
 }
 
+/**
+ * Reemplaza de forma segura la extensión de un archivo.
+ * @param {string} filename - Nombre del archivo original.
+ * @param {string} nextExt - Nueva extensión sin punto.
+ * @returns {string} Nombre del archivo con la extensión reemplazada.
+ */
 function safeReplaceExtension(filename, nextExt) {
   if (!filename) return `audio-${Date.now()}.${nextExt}`;
   const ext = path.extname(filename);
@@ -90,6 +118,11 @@ function safeReplaceExtension(filename, nextExt) {
 
 let cachedFfmpegPath = null;
 
+/**
+ * Resuelve la ruta del binario de ffmpeg en el sistema.
+ * Busca en la variable de entorno FFMPEG_PATH, en PATH y en rutas conocidas de Windows.
+ * @returns {string|null} Ruta completa al ejecutable de ffmpeg o null si no se encuentra.
+ */
 function resolveFfmpegPath() {
   if (cachedFfmpegPath) return cachedFfmpegPath;
   if (process.env.FFMPEG_PATH) {
@@ -141,13 +174,19 @@ function resolveFfmpegPath() {
         }
       }
     } catch (err) {
-      // ignore and fall through
+      // Ignorar el error y continuar con el siguiente candidato de ruta.
     }
   }
 
   return null;
 }
 
+/**
+ * Ejecuta un proceso de ffmpeg con los argumentos proporcionados.
+ * @param {string[]} args - Argumentos para ffmpeg.
+ * @returns {Promise<void>} Resuelve si el proceso termina con código 0.
+ * @throws {Error} Si ffmpeg no se encuentra o el proceso falla.
+ */
 function runFfmpeg(args) {
   const ffmpegPath = resolveFfmpegPath();
   if (!ffmpegPath) {
@@ -167,6 +206,12 @@ function runFfmpeg(args) {
   });
 }
 
+/**
+ * Transcodifica un buffer de audio WebM a formato OGG usando ffmpeg con codec Opus.
+ * @param {Buffer} buffer - Buffer de audio WebM de entrada.
+ * @returns {Promise<Buffer>} Buffer de audio OGG transcodificado.
+ * @throws {Error} Si ffmpeg no está disponible o falla la transcodificación.
+ */
 async function transcodeWebmToOgg(buffer) {
   let tmpDir = null;
   try {
@@ -194,31 +239,48 @@ async function transcodeWebmToOgg(buffer) {
       try {
         await fs.promises.rm(tmpDir, { recursive: true, force: true });
       } catch (cleanupErr) {
-        // Best-effort cleanup
+        // Limpieza de mejor esfuerzo del directorio temporal.
       }
     }
   }
 }
 
+/**
+ * Construye la URL pública para un archivo subido a Cloudinary.
+ * Imágenes y audios usan URL segura directa; otros archivos usan URL firmada de descarga.
+ * @param {Object} uploadResult - Resultado del upload de Cloudinary.
+ * @param {string} resourceType - Tipo de recurso ('image', 'video', 'raw').
+ * @param {string} filename - Nombre del archivo original.
+ * @param {string} mimeType - Tipo MIME del archivo.
+ * @returns {string} URL pública o firmada del recurso.
+ */
 function buildPublicMediaUrl(uploadResult, resourceType, filename, mimeType) {
   if (resourceType === 'image') {
     return uploadResult.secure_url;
   }
 
-  // WhatsApp voice notes require an inline, streamable URL (no attachment disposition).
-  // Cloudinary private_download_url forces attachment, which makes WhatsApp treat it as a document.
+  // Las notas de voz de WhatsApp requieren una URL inline y reproducible (sin disposición de adjunto).
+  // La private_download_url de Cloudinary fuerza "attachment", lo que hace que WhatsApp la trate como documento.
   if (mimeType && mimeType.startsWith('audio/')) {
     return uploadResult.secure_url;
   }
 
   const ext = filename ? path.extname(filename).replace('.', '') : '';
-  // Use signed URL for non-image files to avoid private delivery issues
+  // Usar URL firmada para archivos que no son imágenes y evitar problemas de entrega privada.
   return cloudinary.utils.private_download_url(uploadResult.public_id, ext || null, {
     resource_type: resourceType,
     type: 'upload'
   });
 }
 
+/**
+ * Sube un buffer a Cloudinary usando streaming.
+ * @param {Buffer} buffer - Contenido del archivo a subir.
+ * @param {string} resourceType - Tipo de recurso ('image', 'video', 'raw').
+ * @param {string} filename - Nombre de archivo para sobrescribir en Cloudinary.
+ * @param {Object} [options={}] - Opciones adicionales de upload (eager, etc.).
+ * @returns {Promise<Object>} Resultado del upload de Cloudinary.
+ */
 function uploadToCloudinary(buffer, resourceType, filename, options = {}) {
   return new Promise((resolve, reject) => {
     const upload = cloudinary.uploader.upload_stream(
@@ -239,6 +301,12 @@ function uploadToCloudinary(buffer, resourceType, filename, options = {}) {
   });
 }
 
+/**
+ * Descarga un archivo desde una URL HTTPS y lo retorna como Buffer.
+ * @param {string} fileUrl - URL completa del archivo a descargar.
+ * @returns {Promise<Buffer>} Contenido descargado.
+ * @throws {Error} Si la respuesta HTTP no es exitosa o hay error de red.
+ */
 function fetchBuffer(fileUrl) {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(fileUrl);
@@ -265,6 +333,12 @@ function fetchBuffer(fileUrl) {
   });
 }
 
+/**
+ * Registra las rutas de almacenamiento de archivos de chat y frases rápidas.
+ * Configura Cloudinary, multer, y asegura la columna entity_type en storage_chat.
+ * @param {Object} fastify - Instancia de Fastify.
+ * @returns {Promise<void>}
+ */
 module.exports = async function storageChatRoutes(fastify) {
   const db = fastify.db || require('../infrastructure/database/postgres');
 
@@ -279,7 +353,7 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   });
 
-  // Ensure entity_type column exists for multi-entity attachments
+  // Asegurar que existe la columna entity_type para adjuntos de múltiples entidades.
   await db.query(
     `ALTER TABLE storage_chat 
      ADD COLUMN IF NOT EXISTS entity_type VARCHAR(20) NOT NULL DEFAULT 'chat'`
@@ -289,6 +363,7 @@ module.exports = async function storageChatRoutes(fastify) {
      ON storage_chat(entity_type, entity_id)`
   );
 
+  // POST /api/storage-chat/upload — Sube un archivo (máx. 15MB) asociado a un chat. Auth requerida. Rate limit: 20/min por IP+usuario. Efectos: inserta en storage_chat, emite 'attachments:updated' por websocket, reenvía medios a WhatsApp si es canal de WhatsApp.
   fastify.post('/api/storage-chat/upload', {
     preHandler: async (request, reply) => {
       if (!(await authenticateRequest(request, reply)) || reply.sent) return;
@@ -360,7 +435,7 @@ module.exports = async function storageChatRoutes(fastify) {
           filename = safeReplaceExtension(filename, 'ogg');
           request.log.info({ mimeType, filename }, 'whatsapp audio: transcode ok');
         } catch (transcodeErr) {
-          // If ffmpeg is not available, fall back to Cloudinary transcode.
+          // Si ffmpeg no está disponible, se recurre a la transcodificación de Cloudinary.
           preferCloudinaryTranscode = true;
           request.log.error({ err: transcodeErr }, 'audio transcode failed, fallback to Cloudinary');
         }
@@ -403,7 +478,7 @@ module.exports = async function storageChatRoutes(fastify) {
           storedMimeType = desiredMimeType;
           storedFilename = desiredFilename;
         } else if (uploadResult?.public_id) {
-          // Fallback to on-the-fly derived ogg URL
+          // Alternativa con URL ogg derivada sobre la marcha.
           storedUrl = cloudinary.url(uploadResult.public_id, {
             resource_type: 'video',
             format: 'ogg',
@@ -434,7 +509,7 @@ module.exports = async function storageChatRoutes(fastify) {
 
       const effectiveMimeType = storedMimeType || mimeType;
 
-      // Notify participants so they can refresh attachments in real time
+      // Notificar a los participantes para que refresquen los adjuntos en tiempo real.
       const io = socketService.getIO();
       if (io && entityType === 'chat' && message && chat) {
         const payload = { entityId: Number(entityId), entityType: 'chat' };
@@ -444,7 +519,7 @@ module.exports = async function storageChatRoutes(fastify) {
         }
       }
 
-      // If this attachment belongs to a WhatsApp chat message, forward it to WhatsApp
+      // Si el adjunto pertenece a un chat de WhatsApp, reenviarlo a WhatsApp.
       if (entityType === 'chat' && isWhatsAppAgentAttachment && message && chat) {
         const client = await userRepository.findById(chat.clientId);
         if (client?.whatsapp_id) {
@@ -487,8 +562,8 @@ module.exports = async function storageChatRoutes(fastify) {
             const captionText = isPlaceholder ? '' : captionTextRaw;
             if (mediaType === 'audio' && storedUrl) {
               try {
-                // If there's text, send it as a separate message (replying if needed),
-                // then send the voice note. This matches the requested UX.
+                // Si hay texto, se envía como mensaje separado (respondiendo si es necesario),
+                // y luego se envía la nota de voz. Esto coincide con la UX solicitada.
                 if (captionText) {
                   const textExternalId = await whatsappService.sendText(connection, {
                     to: client.whatsapp_id,
@@ -587,6 +662,7 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   });
 
+  // GET /api/storage-chat/:entity_id — Lista los adjuntos de un chat (entity_type=chat). Auth requerida y acceso al chat validado.
   fastify.get('/api/storage-chat/:entity_id', {
     schema: {
       params: {
@@ -630,6 +706,7 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   });
 
+  // GET /api/storage-chat/download/:id — Descarga un adjunto por ID con validación de acceso al chat. Reintenta con URL firmada si Cloudinary devuelve 401.
   fastify.get('/api/storage-chat/download/:id', {
     schema: {
       params: {
@@ -667,7 +744,7 @@ module.exports = async function storageChatRoutes(fastify) {
       try {
         buffer = await fetchBuffer(file.url);
       } catch (err) {
-        // If Cloudinary requires auth (401), generate a signed URL and retry
+        // Si Cloudinary requiere autenticación (401), generar una URL firmada y reintentar.
         if (String(err.message || '').includes('401') && file.public_id) {
           const ext = file.filename ? path.extname(file.filename).replace('.', '') : '';
           const signedUrl = cloudinary.utils.private_download_url(
@@ -695,6 +772,7 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   });
 
+  // DELETE /api/storage-chat/:id — Elimina un adjunto de Cloudinary y de storage_chat. Auth requerida y acceso al chat validado.
   fastify.delete('/api/storage-chat/:id', {
     schema: {
       params: {
@@ -741,7 +819,7 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   });
 
-  // Quick phrases (per user)
+  // GET /api/quick-phrases — Lista las frases rápidas ordenadas por etiqueta. Rol: agent.
   fastify.get('/api/quick-phrases', {
     preHandler: requireRole('agent')
   }, async (request, reply) => {
@@ -759,6 +837,7 @@ module.exports = async function storageChatRoutes(fastify) {
     }
   })
 
+  // POST /api/quick-phrases — Crea o actualiza una frase rápida por etiqueta (upsert por conflict en label). Rol: agent.
   fastify.post('/api/quick-phrases', {
     preHandler: requireRole('agent'),
     schema: {

@@ -1,3 +1,10 @@
+/**
+ * @file Implementa el borrado lógico (soft delete) en las tablas `channels`
+ * y `departments` mediante la columna `deleted_at` de tipo `timestamptz`.
+ * Crea índices parciales filtrados por `deleted_at IS NULL` para optimizar
+ * las consultas que solo deben retornar registros visibles.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     ALTER TABLE channels ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;

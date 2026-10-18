@@ -1,3 +1,10 @@
+/**
+ * @file socket-service.test.js
+ * @description Pruebas del servicio de socket.io.
+ * Los tests están escritos en español. Verifican el control de acceso a chats
+ * de soporte (ensureSupportChatAccess) y la emisión de presencia global y de
+ * agentes, ambas acotadas por empresa.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 

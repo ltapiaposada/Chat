@@ -4,6 +4,11 @@ const agentChannelRepository = require('../infrastructure/repositories/AgentChan
 const supportAccessPolicy = require('../domain/policies/supportAccessPolicy');
 const { verifyAuthToken } = require('../config/auth');
 
+/**
+ * Extrae un token Bearer de una solicitud HTTP.
+ * @param {Object} request - Solicitud de Fastify.
+ * @returns {string|null} Token recibido.
+ */
 function getTokenFromRequest(request) {
   const header = request.headers.authorization || request.headers.Authorization;
   if (typeof header === 'string' && header.startsWith('Bearer ')) {
@@ -13,10 +18,23 @@ function getTokenFromRequest(request) {
   return null;
 }
 
+/**
+ * Envía una respuesta de error de autenticación uniforme.
+ * @param {Object} reply - Respuesta de Fastify.
+ * @param {number} statusCode - Código HTTP.
+ * @param {string} message - Mensaje público.
+ * @returns {Object} Respuesta enviada.
+ */
 function sendAuthError(reply, statusCode, message) {
   return reply.status(statusCode).send({ error: message });
 }
 
+/**
+ * Autentica una solicitud y agrega su identidad a `request.auth`.
+ * @param {Object} request - Solicitud de Fastify.
+ * @param {Object} reply - Respuesta de Fastify.
+ * @returns {Promise<Object|null>} Identidad autenticada o respuesta de error.
+ */
 async function authenticateRequest(request, reply) {
   const token = getTokenFromRequest(request);
   if (!token) {
@@ -32,9 +50,20 @@ async function authenticateRequest(request, reply) {
   }
 }
 
+/**
+ * Crea un pre-handler que limita una ruta a roles concretos.
+ * @param {string|string[]} allowedRoles - Roles autorizados.
+ * @returns {Function} Pre-handler asíncrono de Fastify.
+ */
 function requireRole(allowedRoles) {
   const normalized = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
 
+  /**
+   * Verifica la identidad y el rol de la solicitud.
+   * @param {Object} request - Solicitud de Fastify.
+   * @param {Object} reply - Respuesta de Fastify.
+   * @returns {Promise<Object|null>} Identidad autorizada.
+   */
   return async function ensureRole(request, reply) {
     const auth = request.auth || (await authenticateRequest(request, reply));
     if (!auth || reply.sent) return null;
@@ -47,6 +76,13 @@ function requireRole(allowedRoles) {
   };
 }
 
+/**
+ * Autoriza el acceso a un mensaje según empresa, canal, cliente y agente asignado.
+ * @param {Object} request - Solicitud de Fastify.
+ * @param {Object} reply - Respuesta de Fastify.
+ * @param {number|string} messageId - Mensaje solicitado.
+ * @returns {Promise<Object|null>} Contexto autorizado o respuesta de error.
+ */
 async function authorizeChatMessageAccess(request, reply, messageId) {
   const auth = request.auth || (await authenticateRequest(request, reply));
   if (!auth || reply.sent) return null;

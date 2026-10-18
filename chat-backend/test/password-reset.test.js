@@ -1,9 +1,22 @@
+/**
+ * @file password-reset.test.js
+ * @description Pruebas del flujo de restablecimiento de contraseña.
+ * Los tests están escritos en español. Cubren la no revelación de cuentas
+ * registradas, el almacenamiento de solo el hash del token, el uso atómico del
+ * token, el rechazo de enlaces vencidos/usados y el límite de tasa por cuenta.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const Fastify = require('fastify');
 const routes = require('../src/routes/passwordReset');
+/**
+ * Registra las rutas de restablecimiento de contraseña en Fastify.
+ * @param {{ query: Function }} db - Stub de la base de datos.
+ * @param {{ isConfigured: Function, sendReset: Function }} [mailer] - Stub del servicio de correo.
+ * @returns {Promise<import('fastify').FastifyInstance>} Aplicación lista para recibir peticiones.
+ */
 async function setup(db, mailer = { isConfigured: () => true, sendReset: async () => {} }) {
   const app = Fastify(); await app.register(routes, { db, mailer }); await app.ready(); return app;
 }

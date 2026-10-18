@@ -1,3 +1,10 @@
+/**
+ * @file widget-identity.test.js
+ * @description Pruebas del servicio de identidad del widget.
+ * Los tests están escritos en español. Verifican el hash de identidades anónimas
+ * acotado al canal, la preservación de datos de sesión del cliente, la validación
+ * de aserciones firmadas y la prohibición de reutilizar nonces.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
@@ -11,6 +18,11 @@ const channel = {
   assertion_issuer: 'orka-backend'
 };
 
+/**
+ * Construye un conjunto de claims de aserción válidos, opcionalmente con overrides.
+ * @param {object} [overrides={}] - Claims a reemplazar sobre los valores por defecto.
+ * @returns {{ iss: string, aud: string, channel: string, sub: string, name: string, email: string, nonce: string, iat: number, exp: number }} Claims de la aserción.
+ */
 function claims(overrides = {}) {
   const now = Math.floor(Date.now() / 1000);
   return {

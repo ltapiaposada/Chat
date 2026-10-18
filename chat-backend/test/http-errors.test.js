@@ -1,8 +1,19 @@
+/**
+ * @file http-errors.test.js
+ * @description Pruebas del plugin de manejo de errores HTTP.
+ * Los tests están escritos en español. Verifican que los errores de validación
+ * se mapean a respuestas 400, que los detalles internos del servidor quedan
+ * ocultos en los 500 y que las rutas inexistentes devuelven 404.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { registerHttpErrorHandling } = require('../src/plugins/httpErrors');
 
+/**
+ * Crea un stub de Fastify que captura los handlers de error y de ruta no encontrada.
+ * @returns {{ errorHandler: Function|null, notFoundHandler: Function|null, setErrorHandler: Function, setNotFoundHandler: Function }} Stub de Fastify.
+ */
 function createFastifyStub() {
   return {
     errorHandler: null,
@@ -16,6 +27,10 @@ function createFastifyStub() {
   };
 }
 
+/**
+ * Crea un stub de respuesta que captura el código de estado y el payload enviado.
+ * @returns {{ sent: boolean, statusCode: number|null, payload: unknown|null, status: Function, send: Function }} Stub de reply de Fastify.
+ */
 function createReplyStub() {
   return {
     sent: false,

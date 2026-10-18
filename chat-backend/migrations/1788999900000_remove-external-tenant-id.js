@@ -1,3 +1,9 @@
+/**
+ * @file Elimina la columna `external_tenant_id` de la tabla `users` y el
+ * índice único `idx_users_external_identity`. La identificación de tenants
+ * ahora se realiza mediante la relación directa `company_id`.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     DROP INDEX IF EXISTS idx_users_external_identity;

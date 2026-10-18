@@ -1,3 +1,10 @@
+/**
+ * @file admin-metrics.test.js
+ * @description Pruebas de la API de métricas del administrador.
+ * Los tests están escritos en español. Verifican que las consultas y respuestas
+ * están acotadas a la empresa autenticada, los filtros de rango de fechas y que
+ * solo los administradores pueden acceder a las métricas.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Fastify = require('fastify');

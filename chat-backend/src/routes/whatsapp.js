@@ -20,6 +20,12 @@ const webhookReceiveRateLimit = createRateLimit({
   errorMessage: 'Too many webhook requests'
 });
 
+/**
+ * Compara dos cadenas de forma segura contra ataques de timing.
+ * @param {string} left - Primera cadena a comparar.
+ * @param {string} right - Segunda cadena a comparar.
+ * @returns {boolean} true si ambas cadenas son idénticas.
+ */
 function safeEqual(left, right) {
   if (typeof left !== 'string' || typeof right !== 'string') return false;
   const leftBuffer = Buffer.from(left);
@@ -27,25 +33,56 @@ function safeEqual(left, right) {
   return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+/**
+ * Valida la firma HMAC SHA-256 de Meta (X-Hub-Signature-256) usando el app secret.
+ * @param {Buffer} rawBody - Cuerpo de la solicitud en bytes.
+ * @param {string} signature - Firma enviada por Meta.
+ * @param {string} appSecret - Clave secreta de la aplicación de la conexión.
+ * @returns {boolean} true si la firma es válida.
+ */
 function validSignature(rawBody, signature, appSecret) {
   if (!Buffer.isBuffer(rawBody) || !signature || !appSecret) return false;
   const expected = `sha256=${crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')}`;
   return safeEqual(expected, signature);
 }
 
+/**
+ * Extrae el contenido de texto de un mensaje de WhatsApp.
+ * @param {Object} message - Mensaje entrante de WhatsApp.
+ * @returns {string|null} Texto del mensaje o null si no tiene texto/botón.
+ */
 function extractTextMessage(message) {
   return message?.text?.body || message?.button?.text || null;
 }
 
+/**
+ * Construye un nombre de archivo con el tipo de medio y una marca de tiempo.
+ * @param {string} mediaType - Tipo de medio (image, audio, document).
+ * @param {string} mimeType - Tipo MIME del archivo.
+ * @returns {string} Nombre de archivo generado.
+ */
 function buildFilename(mediaType, mimeType) {
   return `${mediaType}-${Date.now()}.${mimeType?.split('/')[1] || 'bin'}`;
 }
 
+/**
+ * Devuelve el texto de contenido de un mensaje multimedia, usando una etiqueta por defecto si no hay caption.
+ * @param {string} mediaType - Tipo de medio (audio, document, image).
+ * @param {string} caption - Caption del medio si existe.
+ * @returns {string} Contenido de texto del mensaje.
+ */
 function mediaContent(mediaType, caption) {
   if (caption) return caption;
   return { audio: 'Nota de audio', document: 'Adjunto', image: 'Imagen' }[mediaType] || 'Adjunto';
 }
 
+/**
+ * Sube un buffer a Cloudinary usando streaming.
+ * @param {Buffer} buffer - Contenido del archivo a subir.
+ * @param {string} resourceType - Tipo de recurso ('image', 'raw', etc.).
+ * @param {string} filename - Nombre de archivo para sobrescribir en Cloudinary.
+ * @returns {Promise<Object>} Resultado del upload de Cloudinary.
+ */
 function uploadToCloudinary(buffer, resourceType, filename) {
   return new Promise((resolve, reject) => {
     const upload = cloudinary.uploader.upload_stream({
@@ -58,6 +95,17 @@ function uploadToCloudinary(buffer, resourceType, filename) {
   });
 }
 
+/**
+ * Guarda un mensaje entrante de WhatsApp: crea el mensaje de texto o descarga/guarda el medio en Cloudinary.
+ * @param {Object} params - Parámetros del mensaje.
+ * @param {Object} params.message - Mensaje entrante de WhatsApp.
+ * @param {Object} params.connection - Conexión de WhatsApp activa.
+ * @param {Object} params.chat - Chat asociado al mensaje.
+ * @param {Object} params.user - Usuario (cliente) que envió el mensaje.
+ * @param {number|null} params.replyToId - ID del mensaje respondido, si aplica.
+ * @param {Object} params.db - Conexión a la base de datos.
+ * @returns {Promise<Object|null>} Mensaje guardado o null si no se pudo procesar.
+ */
 async function saveInboundMessage({ message, connection, chat, user, replyToId, db }) {
   const whatsappService = providerFor(connection);
   const common = {
@@ -95,11 +143,18 @@ async function saveInboundMessage({ message, connection, chat, user, replyToId, 
   return saved;
 }
 
+/**
+ * Registra las rutas del webhook de WhatsApp.
+ * Configura un content type parser en modo buffer para validar la firma de Meta.
+ * Incluye la verificación del webhook (GET) y la recepción de eventos (POST).
+ * @param {Object} fastify - Instancia de Fastify.
+ * @returns {Promise<void>}
+ */
 module.exports = async function whatsappRoutes(fastify) {
   const db = fastify.db || require('../infrastructure/database/postgres');
   cloudinary.config({ cloudinary_url: process.env.CLOUDINARY_URL });
 
-  // The exact bytes are required to validate Meta's X-Hub-Signature-256.
+  // Los bytes exactos son requeridos para validar el X-Hub-Signature-256 de Meta.
   fastify.removeContentTypeParser('application/json');
   fastify.addContentTypeParser('application/json', { parseAs: 'buffer' }, (request, body, done) => {
     request.rawBody = body;
@@ -111,6 +166,7 @@ module.exports = async function whatsappRoutes(fastify) {
     }
   });
 
+  // GET /api/whatsapp/webhook/:webhookKey — Verificación del webhook de Meta (hub.challenge). Rate limit: 60/min por IP. Respuesta: el challenge si el token es válido, 403 en caso contrario.
   fastify.get('/api/whatsapp/webhook/:webhookKey', {
     preHandler: webhookVerificationRateLimit
   }, async (request, reply) => {
@@ -123,6 +179,7 @@ module.exports = async function whatsappRoutes(fastify) {
     return reply.status(403).send('Forbidden');
   });
 
+  // POST /api/whatsapp/webhook/:webhookKey — Recibe eventos de WhatsApp de Meta. Rate limit: 180/min por IP. Valida firma HMAC. Efectos: crea/actualiza usuarios, chats y mensajes, emite eventos por websocket (message:new, chat:new-pending, message:status-updated, chat:unread-updated), guarda medios en Cloudinary.
   fastify.post('/api/whatsapp/webhook/:webhookKey', {
     preHandler: webhookReceiveRateLimit
   }, async (request, reply) => {

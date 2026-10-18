@@ -7,11 +7,34 @@ const agentChannelRepository = require('../../repositories/AgentChannelRepositor
 const departmentRepository = require('../../repositories/DepartmentRepository');
 const supportAccessPolicy = require('../../../domain/policies/supportAccessPolicy');
 
+/**
+ * Verifica si un socket pertenece a un miembro del personal (staff) válido.
+ * Un socket es válido si tiene un rol de personal, un ID de usuario y un ID de empresa.
+ *
+ * @param {import('socket.io').Socket} socket - Socket a evaluar.
+ * @returns {boolean} `true` si el socket corresponde a un miembro del personal.
+ */
 function isStaff(socket) {
   return supportAccessPolicy.STAFF_ROLES.has(socket.role) && socket.userId && socket.companyId;
 }
 
+/**
+ * Registra los manejadores de eventos WebSocket para el sistema de chats de soporte.
+ * Incluye eventos para clientes (iniciar chat, enviar mensajes, finalizar) y agentes
+ * (asignar chats, transferir, poner en espera, cerrar), además de indicadores de
+ * escritura, encuestas de satisfacción y marcado de mensajes leídos.
+ *
+ * @param {object} params - Parámetros de configuración de los handlers.
+ * @param {import('socket.io').Socket} params.socket - Socket del cliente conectado.
+ * @param {import('socket.io').Server} params.io - Servidor Socket.IO para emisiones globales.
+ * @param {Map<number, string>} params.agents - Mapa de agentes en línea (`userId -> socketId`).
+ * @param {Map<number, string>} params.clients - Mapa de clientes conectados (`userId -> socketId`).
+ * @param {Function} params.ensureSupportChatAccess - Función de validación de acceso a chats de soporte.
+ * @returns {void}
+ */
 function registerSupportChatHandlers({ socket, io, agents, clients, ensureSupportChatAccess }) {
+  // Obtener el historial de chats del cliente. Emite 'client:chat-history' con la
+  // lista de chats asociados al ID del cliente y la empresa.
   socket.on('client:get-history', async () => {
     try {
       if (socket.role !== 'client' || !socket.userId) return;
@@ -25,12 +48,17 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Obtener los departamentos disponibles para el canal del cliente.
+  // Emite 'client:departments' con la lista de departamentos configurados.
   socket.on('client:get-departments', async () => {
     if (socket.role !== 'client' || !socket.companyId || !socket.channelId) return;
     const departments = await departmentRepository.listForChannel(socket.companyId, socket.channelId);
     socket.emit('client:departments', departments);
   });
 
+  // Iniciar un nuevo chat de soporte. Crea el usuario si no existe, selecciona
+  // agente o departamento según la estrategia de enrutamiento, persiste el chat
+  // y notifica a los agentes correspondientes. Emite 'chat:created' al cliente.
   socket.on('client:start-chat', async ({ subject, departmentId, intention }) => {
     try {
       if (socket.role !== 'client' || !socket.userId) return;
@@ -94,6 +122,9 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Enviar un mensaje desde el cliente. Persiste el mensaje, actualiza el estado
+  // de entrega si el agente está en línea y notifica al agente asignado con el
+  // conteo de mensajes no leídos actualizado.
   socket.on('client:send-message', async (data) => {
     try {
       if (socket.role !== 'client' || !socket.userId) return;
@@ -138,6 +169,9 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Finalizar un chat desde el lado del cliente. Cambia el estado a 'closed',
+  // notifica al agente asignado y envía una plantilla de encuesta de satisfacción
+  // por WhatsApp si el canal es WhatsApp.
   socket.on('client:end-chat', async ({ chatId }) => {
     try {
       if (socket.role !== 'client' || !socket.userId) return;
@@ -192,6 +226,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Obtener la lista de chats pendientes para el agente. Filtra por empresa,
+  // canales, departamentos y visibilidad según el rol. Emite 'agent:pending-chats'.
   socket.on('agent:get-pending-chats', async () => {
     try {
       if (!isStaff(socket)) return;
@@ -210,6 +246,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Obtener los chats activos asignados al agente actual.
+  // Emite 'agent:my-chats' con la lista de chats asignados.
   socket.on('agent:get-my-chats', async () => {
     try {
       if (!isStaff(socket)) return;
@@ -223,6 +261,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Obtener la lista de agentes disponibles para los canales del agente actual.
+  // Incluye el estado de conexión de cada agente. Emite 'agent:available-agents'.
   socket.on('agent:get-available-agents', async ({ excludeAgentId }) => {
     try {
       if (!isStaff(socket)) return;
@@ -243,6 +283,9 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Transferir un chat a otro agente. Valida permisos, verifica que el agente
+  // destino pertenezca a la empresa y tenga acceso al canal, luego reasigna el chat
+  // y notifica al agente original, al agente destino y al cliente.
   socket.on('agent:transfer-chat', async ({ chatId, toAgentId }) => {
     try {
       if (!isStaff(socket)) return;
@@ -286,6 +329,9 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Asignar un chat pendiente al agente actual. Valida permisos de reclamación,
+  // reasigna el chat, carga el historial de mensajes y notifica al cliente con
+  // el nombre del agente. Remueve el chat de la cola de pendientes.
   socket.on('agent:assign-chat', async ({ chatId }) => {
     try {
       if (!isStaff(socket)) return;
@@ -334,6 +380,9 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Enviar un mensaje desde un agente. Valida acceso, verifica la ventana de
+  // atención de WhatsApp (24h), persiste el mensaje, lo envía por la API de
+  // WhatsApp si aplica y notifica al cliente.
   socket.on('agent:send-message', async (data) => {
     try {
       if (!isStaff(socket)) return;
@@ -434,6 +483,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Poner un chat en espera. Cambia el estado a 'on_hold' y notifica
+  // al agente y al cliente del cambio de estado.
   socket.on('agent:put-on-hold', async ({ chatId }) => {
     try {
       if (!isStaff(socket)) return;
@@ -456,6 +507,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Reanudar un chat que estaba en espera. Cambia el estado a 'active'
+  // y notifica al agente y al cliente del cambio de estado.
   socket.on('agent:resume-chat', async ({ chatId }) => {
     try {
       if (!isStaff(socket)) return;
@@ -478,6 +531,9 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Cerrar un chat desde el lado del agente. Cambia el estado a 'closed',
+  // notifica al cliente y envía la plantilla de encuesta de satisfacción
+  // por WhatsApp si el canal es WhatsApp.
   socket.on('agent:close-chat', async ({ chatId }) => {
     try {
       if (!isStaff(socket)) return;
@@ -522,6 +578,9 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Obtener los mensajes de un chat. Carga el historial, marca los mensajes como
+  // leídos, notifica al remitente del cambio de estado y actualiza el conteo
+  // de no leídos para agentes.
   socket.on('messages:get', async ({ chatId }) => {
     try {
       if (!socket.userId || !socket.role) return;
@@ -559,6 +618,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Notificar que el usuario comenzó a escribir. Emite 'typing:started'
+  // al interlocutor correspondiente (agente si el remitente es cliente, o viceversa).
   socket.on('typing:start', async ({ chatId }) => {
     try {
       const chat = await chatRepository.findById(chatId, socket.companyId);
@@ -575,6 +636,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Notificar que el usuario dejó de escribir. Emite 'typing:stopped'
+  // al interlocutor correspondiente.
   socket.on('typing:stop', async ({ chatId }) => {
     try {
       const chat = await chatRepository.findById(chatId, socket.companyId);
@@ -591,6 +654,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Enviar una encuesta de satisfacción para un chat. Solo clientes autenticados
+  // pueden enviarla. Notifica al agente asignado con la calificación y comentarios.
   socket.on('chat:submit-survey', async ({ chatId, rating, feedback }) => {
     try {
       if (socket.role !== 'client' || !socket.userId || !socket.companyId) return;
@@ -615,6 +680,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Obtener el historial de chats cerrados del agente. Los admins pueden
+  // ver todos los chats de la empresa. Emite 'agent:chat-history'.
   socket.on('agent:get-history', async () => {
     try {
       if (!isStaff(socket)) return;
@@ -627,6 +694,8 @@ function registerSupportChatHandlers({ socket, io, agents, clients, ensureSuppor
     }
   });
 
+  // Marcar mensajes de un chat como leídos. Actualiza el estado en la base de
+  // datos y notifica al interlocutor del cambio de estado de los mensajes.
   socket.on('messages:mark-read', async ({ chatId }) => {
     try {
       if (!socket.userId || !socket.role) return;

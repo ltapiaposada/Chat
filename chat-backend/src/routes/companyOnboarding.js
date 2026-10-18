@@ -11,11 +11,22 @@ const onboardingRateLimit = createRateLimit({
   errorMessage: 'Demasiados intentos de registro'
 });
 
+/**
+ * Convierte un nombre en un slug URL-amigable: normaliza caracteres, minúsculas, guiones, máximo 100 caracteres.
+ * @param {string} value - Nombre a convertir.
+ * @returns {string} Slug normalizado.
+ */
 function slugify(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100);
 }
 
+/**
+ * Valida y normaliza un origen (dominio) exacto con protocolo HTTP o HTTPS.
+ * @param {string} value - URL del origen a validar.
+ * @returns {string} Origen normalizado (solo scheme + host + port).
+ * @throws {Error} Si el protocolo no es http/https o el formato no es un origen exacto.
+ */
 function normalizeOrigin(value) {
   const parsed = new URL(String(value || '').trim());
   if (!['http:', 'https:'].includes(parsed.protocol) || parsed.origin !== String(value).trim()) {
@@ -24,9 +35,17 @@ function normalizeOrigin(value) {
   return parsed.origin;
 }
 
+/**
+ * Registra las rutas de alta de empresas (onboarding).
+ * Crea empresa, canal web por defecto, usuario administrador y registro de auditoría en una transacción.
+ * @param {Object} fastify - Instancia de Fastify.
+ * @param {Object} options - Opciones del plugin, incluye la conexión db.
+ * @returns {Promise<void>}
+ */
 module.exports = async function companyOnboardingRoutes(fastify, options) {
   const db = options.db;
 
+  // POST /api/companies/register — Registra una nueva empresa con su canal web, usuario admin y clave pública. Rate limit: 3/min por IP+email. Efectos: token de autenticación, registro de auditoría. Crea: empresa, canal, usuario, asignación agent-channel.
   fastify.post('/api/companies/register', {
     preHandler: onboardingRateLimit,
     schema: {

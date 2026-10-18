@@ -5,24 +5,44 @@ const ASSERTION_AUDIENCE = 'support-chat-widget';
 const MAX_ASSERTION_TTL_SECONDS = 300;
 const CLOCK_SKEW_SECONDS = 30;
 
+/** @param {string} value - Valor que se desea codificar. @returns {string} Valor en Base64 URL. */
 function encode(value) {
   return Buffer.from(value).toString('base64url');
 }
 
+/** @param {string} value - JSON codificado. @returns {Object} Objeto decodificado. */
 function decodeJson(value) {
   return JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
 }
 
+/**
+ * Calcula una identidad irreversible mediante HMAC SHA-256.
+ * @param {*} value - Valor de identidad.
+ * @param {string} secret - Secreto del canal.
+ * @returns {string} Resumen hexadecimal.
+ */
 function digest(value, secret) {
   return crypto.createHmac('sha256', secret).update(String(value)).digest('hex');
 }
 
+/**
+ * Compara firmas en tiempo constante.
+ * @param {*} left - Primera firma.
+ * @param {*} right - Segunda firma.
+ * @returns {boolean} Resultado de la comparación.
+ */
 function safeEqual(left, right) {
   const a = Buffer.from(String(left));
   const b = Buffer.from(String(right));
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/**
+ * Construye una identidad anónima estable y aislada por canal.
+ * @param {Object} channel - Canal del widget.
+ * @param {string} visitorId - Identificador persistido en el navegador.
+ * @returns {Object} Identidad normalizada.
+ */
 function anonymousIdentity(channel, visitorId) {
   const pepper = process.env.VISITOR_ID_PEPPER || process.env.AUTH_SECRET;
   if (!pepper) throw new Error('VISITOR_ID_PEPPER or AUTH_SECRET is required');
@@ -34,6 +54,12 @@ function anonymousIdentity(channel, visitorId) {
   };
 }
 
+/**
+ * Normaliza la identidad autenticada informada por el sitio anfitrión.
+ * @param {Object} channel - Canal del widget.
+ * @param {Object} input - Identidad proporcionada por el frontend.
+ * @returns {Object} Identidad normalizada y seudonimizada.
+ */
 function clientReportedIdentity(channel, input) {
   if (!input || !input.id) throw new Error('Authenticated identity is incomplete');
   const subject = String(input.id).trim();
@@ -46,6 +72,14 @@ function clientReportedIdentity(channel, input) {
   };
 }
 
+/**
+ * Verifica una aserción firmada y bloquea la reutilización de su nonce.
+ * @param {Object} channel - Canal que emitió la configuración de firma.
+ * @param {string} assertion - JWT firmado por el sistema del cliente.
+ * @param {number} [nowSeconds] - Hora de referencia para pruebas.
+ * @returns {Promise<Object>} Identidad autenticada normalizada.
+ * @throws {Error} Si la firma, vigencia, audiencia, emisor o nonce son inválidos.
+ */
 async function verifyAssertion(channel, assertion, nowSeconds = Math.floor(Date.now() / 1000)) {
   const parts = String(assertion || '').split('.');
   if (parts.length !== 3) throw new Error('Invalid assertion format');
@@ -92,6 +126,12 @@ async function verifyAssertion(channel, assertion, nowSeconds = Math.floor(Date.
   };
 }
 
+/**
+ * Genera una aserción válida para escenarios automatizados.
+ * @param {Object} channel - Canal con secreto de firma.
+ * @param {Object} claims - Declaraciones que se desean firmar.
+ * @returns {string} JWT de prueba.
+ */
 function createAssertionForTesting(channel, claims) {
   const header = encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payload = encode(JSON.stringify(claims));

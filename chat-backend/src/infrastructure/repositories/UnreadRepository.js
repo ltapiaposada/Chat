@@ -1,6 +1,11 @@
 const db = require('../database/postgres');
 
 class UnreadRepository {
+  /**
+   * Registra hasta qué momento un usuario leyó un chat directo.
+   * @param {Object} data - Usuario y agente contraparte.
+   * @returns {Promise<void>}
+   */
   async markDmRead({ userId, otherAgentId }) {
     const min = Math.min(Number(userId), Number(otherAgentId));
     const max = Math.max(Number(userId), Number(otherAgentId));
@@ -13,6 +18,11 @@ class UnreadRepository {
     );
   }
 
+  /**
+   * Registra hasta qué momento un usuario leyó un grupo.
+   * @param {Object} data - Usuario y grupo consultado.
+   * @returns {Promise<void>}
+   */
   async markGroupRead({ userId, groupId }) {
     await db.query(
       `INSERT INTO user_group_reads (user_id, group_id, last_read_at)
@@ -23,6 +33,11 @@ class UnreadRepository {
     );
   }
 
+  /**
+   * Registra hasta qué momento un usuario leyó el chat global.
+   * @param {Object} data - Usuario que leyó los mensajes.
+   * @returns {Promise<void>}
+   */
   async markGlobalRead({ userId }) {
     await db.query(
       `INSERT INTO user_global_reads (user_id, last_read_at)
@@ -33,6 +48,11 @@ class UnreadRepository {
     );
   }
 
+  /**
+   * Calcula los mensajes directos pendientes por conversación.
+   * @param {number} userId - Usuario consultado.
+   * @returns {Promise<Object[]>} Contadores por agente contraparte.
+   */
   async getDmUnreadCounts(userId) {
     const result = await db.query(
       `
@@ -65,6 +85,11 @@ class UnreadRepository {
     }));
   }
 
+  /**
+   * Calcula los mensajes grupales pendientes por grupo.
+   * @param {number} userId - Usuario consultado.
+   * @returns {Promise<Object[]>} Contadores por grupo.
+   */
   async getGroupUnreadCounts(userId) {
     const result = await db.query(
       `
@@ -90,6 +115,12 @@ class UnreadRepository {
     }));
   }
 
+  /**
+   * Calcula los mensajes globales pendientes de una empresa.
+   * @param {number} userId - Usuario consultado.
+   * @param {number} companyId - Empresa del usuario.
+   * @returns {Promise<number>} Cantidad de mensajes sin leer.
+   */
   async getGlobalUnreadCount(userId, companyId) {
     const result = await db.query(
       `

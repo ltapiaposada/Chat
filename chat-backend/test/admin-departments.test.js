@@ -1,3 +1,9 @@
+/**
+ * @file admin-departments.test.js
+ * @description Pruebas de la API de gestión de departamentos del administrador.
+ * Los tests están escritos en español. Verifican la autorización por rol, el
+ * ámbito por empresa en listado, actualización y baja lógica de departamentos.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Fastify = require('fastify');
@@ -8,6 +14,11 @@ process.env.AUTH_SECRET = 'admin-department-test-secret';
 const token = (role, companyId = 101) => createAuthToken({
   id: role === 'admin' ? 1 : 2, role, name: role, company_id: companyId
 });
+/**
+ * Registra las rutas de administración de departamentos en una instancia de Fastify.
+ * @param {{ query: (sql: string, params: unknown[]) => Promise<{ rows: unknown[] }> }} db - Stub de la base de datos.
+ * @returns {Promise<import('fastify').FastifyInstance>} Aplicación lista para recibir peticiones.
+ */
 async function appWith(db) { const app = Fastify(); await app.register(routes, { db }); await app.ready(); return app; }
 
 test('department administration rejects non-admin users', async () => {

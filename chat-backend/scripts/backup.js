@@ -1,8 +1,18 @@
+/**
+ * @file Script de línea de comandos para crear un respaldo de la base de datos.
+ * Ejecuta `pg_dump` con formato personalizado y almacena el archivo en `backups/`.
+ * Requiere que `pg_dump` esté disponible en el PATH del sistema.
+ *
+ * Uso: node scripts/backup.js
+ * Salida: ruta completa del archivo generado en stdout.
+ */
+
 require('dotenv').config({ quiet: true });
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
+// Construye la ruta de destino con marca de tiempo ISO.
 const targetDirectory = path.resolve(__dirname, '../backups');
 fs.mkdirSync(targetDirectory, { recursive: true, mode: 0o700 });
 const stamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');

@@ -1,9 +1,18 @@
 const { requireRole } = require('../plugins/auth');
 
+/**
+ * Registra las rutas de métricas de administración.
+ * Proporciona estadísticas de chats, canales, departamentos y agentes por rango de fechas.
+ * Requiere rol 'admin' o 'supervisor'.
+ * @param {Object} fastify - Instancia de Fastify.
+ * @param {Object} options - Opciones del plugin, incluye la conexión db.
+ * @returns {Promise<void>}
+ */
 module.exports = async function adminMetricsRoutes(fastify, options) {
   const db = options.db;
   const managers = requireRole(['admin', 'supervisor']);
 
+  // GET /api/admin/metrics — Obtiene métricas consolidadas de chats, canales, departamentos y agentes para un rango de fechas. Rol: admin o supervisor.
   fastify.get('/api/admin/metrics', { preHandler: managers }, async (request, reply) => {
     const companyId = request.auth.companyId;
     const now = new Date();

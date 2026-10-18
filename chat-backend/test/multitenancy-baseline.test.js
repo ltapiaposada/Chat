@@ -1,3 +1,10 @@
+/**
+ * @file multitenancy-baseline.test.js
+ * @description Pruebas base de aislamiento multitenant.
+ * Los tests están escritos en español. Documentan el comportamiento actual de
+ * repositorios y políticas de acceso frente a datos de otra empresa ("baseline"),
+ * que servirá de referencia para las pruebas de negación de los Phases 1-3.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
@@ -5,9 +12,9 @@ const chatRepository = require('../src/infrastructure/repositories/ChatRepositor
 const socketService = require('../src/infrastructure/websocket/socket');
 const fixtures = require('../test-fixtures/multitenancy');
 
-// These are characterization tests for Phase 0. They intentionally prove the
-// current lack of tenant context and must be replaced by denial tests as the
-// corresponding security controls are implemented in Phases 1-3.
+// Estas son pruebas de caracterización de la Fase 0. Verifican a propósito la
+// falta actual de contexto de tenant y deben reemplazarse por pruebas de
+// negación conforme se implementen los controles de seguridad en las Fases 1-3.
 
 test('fixture models two isolated companies and channels', () => {
   assert.notEqual(fixtures.companyA.id, fixtures.companyB.id);

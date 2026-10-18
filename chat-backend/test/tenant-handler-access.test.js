@@ -1,3 +1,10 @@
+/**
+ * @file tenant-handler-access.test.js
+ * @description Pruebas del control de acceso por tenant en los handlers de WebSocket.
+ * Los tests están escritos en español. Verifican que los handlers de soporte
+ * acotan las consultas y mutaciones a la empresa/canales autenticados y que no
+ * filtran datos entre tenants.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
@@ -5,6 +12,11 @@ const chatRepository = require('../src/infrastructure/repositories/ChatRepositor
 const userRepository = require('../src/infrastructure/repositories/UserRepository');
 const { registerSupportChatHandlers } = require('../src/infrastructure/websocket/handlers/supportChatHandlers');
 
+/**
+ * Configura un socket falso y registra los handlers de soporte en él.
+ * @param {object} [overrides={}] - Propiedades opcionales que reemplazan las del socket.
+ * @returns {{ socket: object, handlers: Map<string, Function>, emitted: Array<object> }} Socket simulado con sus handlers y emisiones capturadas.
+ */
 function setupSocket(overrides = {}) {
   const handlers = new Map();
   const emitted = [];

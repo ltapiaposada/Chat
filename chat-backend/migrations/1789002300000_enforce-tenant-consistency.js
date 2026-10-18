@@ -1,3 +1,11 @@
+/**
+ * @file Refuerza la consistencia de datos entre tenants creando índices
+ * únicos compuestos en `users(id, company_id)` y `channels(id, company_id)`,
+ * y agregando claves foráneas compuestas que aseguran que la columna
+ * `channel_id`, los clientes (`client_id`) y los agentes (`agent_id`) en la
+ * tabla `chats` pertenezcan a la misma empresa.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_id_company ON users(id, company_id);

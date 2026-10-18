@@ -1,3 +1,10 @@
+/**
+ * @file whatsapp-multitenancy.test.js
+ * @description Pruebas de aislamiento multitenant de WhatsApp.
+ * Los tests están escritos en español. Verifican el cifrado de credenciales, la
+ * validación de firmas de Meta, la derivación del tenant desde la conexión, el
+ * descubrimiento de conexiones por canal y la unicidad de usuarios por tenant.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');

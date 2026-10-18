@@ -1,3 +1,11 @@
+/**
+ * @file Agrega campos de seguridad a la tabla `channels`: `signing_secret`
+ * (se genera automáticamente con valores aleatorios), `assertion_issuer` y
+ * `credential_version`. Crea la tabla `widget_assertion_nonces` para
+ * almacenar hashes de nonces de aserción de widgets con expiración, y un
+ * índice para la limpieza de nonces vencidos.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     ALTER TABLE channels ADD COLUMN signing_secret TEXT;

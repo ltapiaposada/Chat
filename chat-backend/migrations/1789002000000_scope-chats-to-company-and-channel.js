@@ -1,3 +1,12 @@
+/**
+ * @file Agrega las columnas `company_id` y `channel_id` a la tabla `chats`,
+ * poblando los valores a partir de la información del cliente. Asigna un canal
+ * por defecto (`demo`) a los usuarios clientes que no tengan uno. Establece
+ * restricciones NOT NULL y claves foráneas compuestas para garantizar la
+ * integridad referencial de chats, usuarios, canales y agentes dentro de
+ * cada empresa. Crea índices para consultas por tenant y estado.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     ALTER TABLE chats ADD COLUMN IF NOT EXISTS company_id INTEGER;

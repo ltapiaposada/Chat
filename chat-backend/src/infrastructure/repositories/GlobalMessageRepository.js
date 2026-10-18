@@ -1,8 +1,11 @@
 const db = require('../database/postgres');
 
 class GlobalMessageRepository {
-  
-  // Crear la tabla si no existe
+
+  /**
+   * Garantiza la existencia de la tabla e índice del chat global.
+   * @returns {Promise<void>}
+   */
   async ensureTable() {
     try {
       await db.query(`
@@ -23,7 +26,11 @@ class GlobalMessageRepository {
     }
   }
 
-  // Crear un nuevo mensaje global
+  /**
+   * Guarda un mensaje global y completa los datos públicos de su autor.
+   * @param {Object} data - Autor y contenido del mensaje.
+   * @returns {Promise<Object>} Mensaje normalizado.
+   */
   async create({ userId, content }) {
     const result = await db.query(
       `INSERT INTO global_messages (user_id, content) 
@@ -32,7 +39,7 @@ class GlobalMessageRepository {
       [userId, content]
     );
     
-    // Obtener info del usuario
+    // Obtiene la información visible del autor.
     const userResult = await db.query(
       'SELECT name, role FROM users WHERE id = $1',
       [userId]
@@ -51,7 +58,12 @@ class GlobalMessageRepository {
     };
   }
 
-  // Obtener los últimos N mensajes globales de una empresa
+  /**
+   * Obtiene los mensajes globales recientes de una empresa.
+   * @param {number} [limit=100] - Cantidad máxima de mensajes.
+   * @param {number|null} [companyId=null] - Empresa utilizada para aislar resultados.
+   * @returns {Promise<Object[]>} Mensajes cronológicos.
+   */
   async getRecent(limit = 100, companyId = null) {
     const result = await db.query(
       `SELECT 
@@ -79,7 +91,11 @@ class GlobalMessageRepository {
     }));
   }
 
-  // Limpiar mensajes antiguos (más de X días)
+  /**
+   * Elimina mensajes globales anteriores al periodo de retención.
+   * @param {number} [daysToKeep=30] - Días que deben conservarse.
+   * @returns {Promise<number>} Cantidad de mensajes eliminados.
+   */
   async cleanOldMessages(daysToKeep = 30) {
     const result = await db.query(
       `DELETE FROM global_messages 

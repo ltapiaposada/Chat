@@ -1,6 +1,11 @@
 const db = require('../database/postgres');
 
 class AgentDmRepository {
+  /**
+   * Guarda un mensaje directo entre dos agentes.
+   * @param {Object} data - Participantes, autor y contenido.
+   * @returns {Promise<Object>} Mensaje directo creado.
+   */
   async create({ agentA, agentB, userId, content }) {
     const result = await db.query(
       `INSERT INTO agent_dm_messages (agent_a, agent_b, user_id, content)
@@ -23,6 +28,11 @@ class AgentDmRepository {
     };
   }
 
+  /**
+   * Obtiene los mensajes recientes de una conversación directa.
+   * @param {Object} options - Participantes y límite de resultados.
+   * @returns {Promise<Object[]>} Mensajes ordenados cronológicamente.
+   */
   async getRecent({ agentA, agentB, limit = 200 }) {
     const result = await db.query(
       `SELECT
@@ -49,6 +59,12 @@ class AgentDmRepository {
     }));
   }
 
+  /**
+   * Construye un identificador estable para una conversación entre dos agentes.
+   * @param {number} agentA - Primer agente.
+   * @param {number} agentB - Segundo agente.
+   * @returns {string} Identificador de la sala Socket.IO.
+   */
   getThreadId(agentA, agentB) {
     const min = Math.min(Number(agentA), Number(agentB));
     const max = Math.max(Number(agentA), Number(agentB));

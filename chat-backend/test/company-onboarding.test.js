@@ -1,3 +1,10 @@
+/**
+ * @file company-onboarding.test.js
+ * @description Pruebas de la API de registro de empresas.
+ * Los tests están escritos en español. Verifican que el alta de una empresa
+ * crea de forma atómica la empresa, el canal, el administrador y su asignación,
+ * y que rechaza orígenes con ruta antes de abrir la transacción.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Fastify = require('fastify');

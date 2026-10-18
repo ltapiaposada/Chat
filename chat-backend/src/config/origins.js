@@ -2,6 +2,12 @@ require('dotenv').config({ quiet: true });
 
 const DEFAULT_ORIGIN = 'http://localhost:5173';
 
+/**
+ * Convierte una lista de orígenes separada por comas en valores normalizados.
+ *
+ * @param {string} rawValue - Lista de orígenes sin procesar.
+ * @returns {string[]} Orígenes no vacíos y sin espacios laterales.
+ */
 function splitOrigins(rawValue) {
   return String(rawValue || '')
     .split(',')
@@ -9,6 +15,11 @@ function splitOrigins(rawValue) {
     .filter(Boolean);
 }
 
+/**
+ * Obtiene los orígenes autorizados para solicitudes HTTP y WebSocket.
+ *
+ * @returns {string[]} Orígenes configurados o el origen local predeterminado.
+ */
 function getAllowedOrigins() {
   const originFromClientUrl = splitOrigins(process.env.CLIENT_URL);
   const originFromCorsList = splitOrigins(process.env.CORS_ORIGINS);
@@ -16,6 +27,12 @@ function getAllowedOrigins() {
   return combined.length > 0 ? combined : [DEFAULT_ORIGIN];
 }
 
+/**
+ * Determina si un origen puede acceder al backend según el entorno actual.
+ *
+ * @param {string|undefined} origin - Encabezado Origin de la solicitud.
+ * @returns {boolean} `true` cuando el origen está permitido.
+ */
 function isAllowedOrigin(origin) {
   if (!origin) return true;
   const allowedOrigins = getAllowedOrigins();
@@ -52,6 +69,11 @@ function isAllowedOrigin(origin) {
   }
 }
 
+/**
+ * Crea el validador de orígenes utilizado por el complemento CORS.
+ *
+ * @returns {Function} Función compatible con la opción `origin` de Fastify CORS.
+ */
 function createCorsOriginValidator() {
   return (origin, callback) => {
     if (isAllowedOrigin(origin)) {

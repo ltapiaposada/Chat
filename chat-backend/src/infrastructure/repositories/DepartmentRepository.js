@@ -1,6 +1,12 @@
 const db = require('../database/postgres');
 
 class DepartmentRepository {
+  /**
+   * Lista los departamentos disponibles para un canal empresarial.
+   * @param {number} companyId - Identificador de la empresa.
+   * @param {number} channelId - Identificador del canal.
+   * @returns {Promise<Object[]>} Departamentos activos.
+   */
   async listForChannel(companyId, channelId) {
     const result = await db.query(
       `SELECT d.id, d.name, d.slug
@@ -11,6 +17,13 @@ class DepartmentRepository {
     return result.rows;
   }
 
+  /**
+   * Busca un departamento activo y asociado al canal indicado.
+   * @param {number} id - Identificador del departamento.
+   * @param {number} companyId - Identificador de la empresa.
+   * @param {number} channelId - Identificador del canal.
+   * @returns {Promise<Object|null>} Departamento encontrado.
+   */
   async findAvailable(id, companyId, channelId) {
     const result = await db.query(
       `SELECT d.* FROM departments d
@@ -21,6 +34,12 @@ class DepartmentRepository {
     return result.rows[0] || null;
   }
 
+  /**
+   * Lista los departamentos asignados a un agente.
+   * @param {number} agentId - Identificador del agente.
+   * @param {number} companyId - Identificador de la empresa.
+   * @returns {Promise<number[]>} Identificadores de departamentos.
+   */
   async findAgentDepartmentIds(agentId, companyId) {
     const result = await db.query(
       `SELECT department_id FROM agent_departments WHERE agent_id=$1 AND company_id=$2`,
@@ -29,6 +48,12 @@ class DepartmentRepository {
     return result.rows.map((row) => Number(row.department_id));
   }
 
+  /**
+   * Selecciona el siguiente agente disponible de un departamento y canal.
+   * @param {Object} department - Departamento con su estrategia de asignación.
+   * @param {number} channelId - Canal que recibirá la conversación.
+   * @returns {Promise<Object|null>} Agente seleccionado o `null`.
+   */
   async selectAgent(department, channelId) {
     if (!department || department.routing_strategy === 'broadcast') return null;
     if (department.routing_strategy === 'direct') {

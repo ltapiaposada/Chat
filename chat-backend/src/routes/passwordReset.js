@@ -2,12 +2,25 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { createRateLimit } = require('../plugins/rateLimit');
 const defaultMailer = require('../services/passwordResetMailer');
+/**
+ * Genera un hash SHA-256 de un token para almacenamiento seguro.
+ * @param {string} token - Token en texto plano a hashear.
+ * @returns {string} Hash hexadecimal del token.
+ */
 const hashToken = token => crypto.createHash('sha256').update(token).digest('hex');
 const genericMessage = 'Si el correo está registrado, recibirás un enlace para recuperar tu contraseña. Revisa también la carpeta de spam.';
 
+/**
+ * Registra las rutas de recuperación de contraseña.
+ * Proporciona endpoints para solicitar y restablecer contraseñas con rate limiting.
+ * @param {Object} fastify - Instancia de Fastify.
+ * @param {Object} options - Opciones del plugin, incluye db y mailer.
+ * @returns {Promise<void>}
+ */
 module.exports = async function passwordResetRoutes(fastify, { db, mailer = defaultMailer }) {
   const ipLimit = createRateLimit({ windowMs: 15*60000, max: 15, errorMessage: 'Demasiados intentos. Inténtalo más tarde.' });
   const emailLimit = createRateLimit({ windowMs: 15*60000, max: 3, key: r => String(r.body?.email || '').trim().toLowerCase(), errorMessage: 'Espera unos minutos antes de solicitar otro enlace.' });
+  // POST /api/password/forgot — Solicita recuperación de contraseña. Envía enlace por correo si el usuario existe. Rate limit: 15 intentos/15min por IP, 3/15min por email. Efectos: inserción en password_reset_tokens, envío de correo.
   fastify.post('/api/password/forgot', {
     preHandler: [ipLimit, emailLimit],
     schema: { body: { type: 'object', additionalProperties: false, required: ['email'], properties: { email: { type: 'string', format: 'email', maxLength: 255 } } } }
@@ -33,6 +46,7 @@ module.exports = async function passwordResetRoutes(fastify, { db, mailer = defa
     return { message: genericMessage };
   });
 
+  // POST /api/password/reset — Restablece la contraseña usando un token válido. Rate limit: 15 intentos/15min por IP. Efectos: actualiza password_hash del usuario, marca token como usado.
   fastify.post('/api/password/reset', {
     preHandler: ipLimit,
     schema: { body: { type: 'object', additionalProperties: false, required: ['token','password'], properties: {

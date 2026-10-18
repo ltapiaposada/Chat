@@ -1,4 +1,10 @@
 ﻿require('dotenv').config();
+/**
+ * @file server.js
+ * @description Punto de entrada principal del servidor Fastify.
+ * Configura rutas HTTP, middlewares, autenticación, límites de tasa,
+ * conexiones WebSocket y ciclo de vida del servidor.
+ */
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fastify = require('fastify')({ logger: true });
@@ -28,6 +34,7 @@ const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 15000);
 const DB_STARTUP_RETRIES = Math.max(1, Number(process.env.DB_STARTUP_RETRIES || 5));
 const DB_STARTUP_RETRY_MS = Math.max(0, Number(process.env.DB_STARTUP_RETRY_MS || 1000));
 
+// Definición de acciones disponibles para el asistente de IA
 const AI_ACTIONS = {
   friendlier: "Reescribe el texto para que suene mas amable y cordial, sin cambiar el significado.",
   more_formal: "Reescribe el texto con un tono mas formal y profesional, sin cambiar el significado.",
@@ -43,6 +50,7 @@ const AI_ACTIONS = {
   professional: "Reescribe el texto como un mensaje profesional de soporte al cliente."
 };
 
+// Límite de tasa: máximo 5 intentos de login por minuto por IP y email
 const loginRateLimit = createRateLimit({
   windowMs: 60_000,
   max: 5,
@@ -50,6 +58,7 @@ const loginRateLimit = createRateLimit({
   errorMessage: 'Too many login attempts'
 });
 
+// Límite de tasa: máximo 3 intentos de registro por minuto por IP y email
 const registerRateLimit = createRateLimit({
   windowMs: 60_000,
   max: 3,
@@ -57,6 +66,7 @@ const registerRateLimit = createRateLimit({
   errorMessage: 'Too many registration attempts'
 });
 
+// Límite de tasa: máximo 30 solicitudes de IA por minuto por IP y usuario
 const aiAssistRateLimit = createRateLimit({
   windowMs: 60_000,
   max: 30,
@@ -64,6 +74,7 @@ const aiAssistRateLimit = createRateLimit({
   errorMessage: 'Too many AI requests'
 });
 
+// Límite de tasa: máximo 100 solicitudes por canal del widget por minuto
 const widgetChannelRateLimit = createRateLimit({
   windowMs: 60_000,
   max: 100,
@@ -71,6 +82,7 @@ const widgetChannelRateLimit = createRateLimit({
   errorMessage: 'Too many requests for this channel'
 });
 
+// Límite de tasa: máximo 60 solicitudes del widget por IP por minuto
 const widgetIpRateLimit = createRateLimit({
   windowMs: 60_000,
   max: 60,
@@ -78,6 +90,7 @@ const widgetIpRateLimit = createRateLimit({
   errorMessage: 'Too many widget requests from this IP'
 });
 
+// Límite de tasa: máximo 20 solicitudes de sesión del widget por identidad por minuto
 const widgetIdentityRateLimit = createRateLimit({
   windowMs: 60_000,
   max: 20,
@@ -88,13 +101,14 @@ const widgetIdentityRateLimit = createRateLimit({
   },
   errorMessage: 'Too many widget session requests'
 });
-// Import routes
+
+// Importar rutas
 // const routes = require('./presentation/routes');
 
-// Register routes
+// Registrar rutas
 // fastify.register(routes);
 
-// Enable CORS for all routes
+// Habilitar CORS para todas las rutas
 fastify.register(require('@fastify/cors'), {
   origin: createCorsOriginValidator(),
   credentials: true,
@@ -103,22 +117,27 @@ fastify.register(require('@fastify/cors'), {
 registerHttpErrorHandling(fastify);
 registerSecurityHeaders(fastify);
 
-// Register storage routes (isolated)
+// Registrar rutas de almacenamiento (aisladas)
 fastify.register(storageChatRoutes);
-// Register WhatsApp webhook routes
+// Registrar rutas de webhook de WhatsApp
 fastify.register(whatsappRoutes);
+// Registrar rutas de administración de canales
 fastify.register(adminChannelRoutes, { db });
+// Registrar rutas de administración de departamentos
 fastify.register(adminDepartmentRoutes, { db });
+// Registrar rutas de métricas de administración
 fastify.register(adminMetricsRoutes, { db });
+// Registrar rutas de onboarding de empresa
 fastify.register(companyOnboardingRoutes, { db });
+// Registrar rutas de restablecimiento de contraseña
 fastify.register(require('./routes/passwordReset'), { db });
 
-// Health check route
+// Ruta de verificación de salud del servidor
 fastify.get('/', async (request, reply) => {
   return { status: 'ok', message: 'Chat Backend API' };
 });
 
-// Login endpoint
+// Endpoint de inicio de sesión
 fastify.post('/api/login', {
   preHandler: loginRateLimit,
   schema: {
@@ -141,7 +160,7 @@ fastify.post('/api/login', {
       return reply.status(400).send({ error: 'Email y contraseña requeridos' });
     }
 
-    // Simple authentication - in production use proper password hashing
+    // Autenticación simple — en producción usar hashing adecuado de contraseñas
     const result = await db.query(
       'SELECT id, name, email, role, password_hash, company_id, channel_id FROM users WHERE email = $1 AND is_active = true',
       [email]
@@ -157,7 +176,7 @@ fastify.post('/api/login', {
     if (user.password_hash) {
       isValid = await bcrypt.compare(password, user.password_hash);
     } else if (password === '1234') {
-      // Legacy demo accounts: upgrade to hashed password on first login
+      // Cuentas demo heredadas: actualizar a contraseña hasheada en el primer inicio de sesión
       isValid = true;
       const newHash = await bcrypt.hash(password, 10);
       await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, user.id]);
@@ -183,7 +202,7 @@ fastify.post('/api/login', {
   }
 });
 
-// Register client endpoint
+// Endpoint de registro de cliente
 fastify.post('/api/register-client', {
   preHandler: registerRateLimit,
   schema: {
@@ -208,7 +227,7 @@ fastify.post('/api/register-client', {
       return reply.status(400).send({ error: 'Nombre, email y contraseña válida requeridos' });
     }
 
-    // Check if email exists
+    // Verificar si el email ya existe
     const existing = await db.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
       return reply.status(400).send({ error: 'El email ya está registrado' });
@@ -216,7 +235,7 @@ fastify.post('/api/register-client', {
 
     const passwordHash = await bcrypt.hash(password, 10);
     
-    // Create client user
+    // Crear usuario cliente
     const result = await db.query(
       `INSERT INTO users (name, email, role, password_hash, company_id, channel_id)
        SELECT $1, $2, $3, $4, c.company_id, c.id
@@ -245,8 +264,8 @@ fastify.post('/api/register-client', {
   }
 });
 
-// Resolve the authenticated client represented by a signed token. Embeddable
-// widgets use this endpoint instead of trusting user data supplied by the host page.
+// Endpoint que resuelve el cliente autenticado a partir de un token firmado.
+// Los widgets embebidos usan este endpoint en lugar de confiar en datos del host.
 fastify.get('/api/client/session', {
   preHandler: requireRole('client')
 }, async (request) => {
@@ -260,8 +279,8 @@ fastify.get('/api/client/session', {
   };
 });
 
-// Public widget session, similar to hosted chat providers. The random visitorId
-// is the bearer identity and is persisted by the loader in the host browser.
+// Sesión pública del widget, similar a proveedores de chat alojados.
+// El visitorId aleatorio es la identidad del portador y se persiste por el loader en el navegador.
 fastify.post('/api/widget/session', {
   preHandler: [widgetChannelRateLimit, widgetIpRateLimit, widgetIdentityRateLimit],
   schema: {
@@ -357,7 +376,7 @@ fastify.post('/api/widget/session', {
   return { token: createAuthToken(user), user, channel: { id: channel.id, key: channel.public_key } };
 });
 
-// AI assist endpoint (Gemini)
+// Endpoint de asistencia con IA (Gemini)
 fastify.post('/api/ai/assist', {
   preHandler: [requireRole('agent'), aiAssistRateLimit],
   schema: {
@@ -426,10 +445,19 @@ fastify.post('/api/ai/assist', {
   }
 });
 
+/**
+ * Espera un tiempo determinado en milisegundos.
+ * @param {number} ms - Milisegundos a esperar.
+ * @returns {Promise} Promesa que se resuelve tras el tiempo indicado.
+ */
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Espera a que la base de datos esté disponible, reintenta un número configurable de veces.
+ * @throws {Error} Si no se puede conectar después de todos los reintentos.
+ */
 async function waitForDatabase() {
   for (let attempt = 1; attempt <= DB_STARTUP_RETRIES; attempt += 1) {
     try {
@@ -437,6 +465,7 @@ async function waitForDatabase() {
       return;
     } catch (error) {
       if (attempt === DB_STARTUP_RETRIES) throw error;
+      // La conexión a la base de datos falló durante el inicio; reintentando
       fastify.log.warn(
         { err: error, attempt, retries: DB_STARTUP_RETRIES },
         'Database connection failed during startup; retrying'
@@ -446,6 +475,10 @@ async function waitForDatabase() {
   }
 }
 
+/**
+ * Inicia el servidor: valida configuración, ejecuta migraciones,
+ * inicia Fastify y Socket.IO, y configura túnel de desarrollo.
+ */
 const start = async () => {
   try {
     validateProductionConfig();
@@ -462,7 +495,7 @@ const start = async () => {
     console.log(`Server listening on port ${port}`);
     console.log(`Allowed origins: ${getAllowedOrigins().join(', ')}`);
 
-    // Initialize Socket.IO
+    // Inicializar Socket.IO
     socketService.initialize(fastify.server);
     publicUrlService.startDevelopmentTunnel({ port, logger: fastify.log });
   } catch (err) {
@@ -471,8 +504,11 @@ const start = async () => {
   }
 };
 
-// Graceful shutdown
+// Apagado graceful
 let isShuttingDown = false;
+/**
+ * Maneja el apagado graceful del servidor: cierra tunnels, Fastify y la base de datos.
+ */
 const gracefulShutdown = async () => {
   if (isShuttingDown) return;
   isShuttingDown = true;

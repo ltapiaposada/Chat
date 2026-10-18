@@ -3,10 +3,24 @@ const { requireRole } = require('../plugins/auth');
 const STRATEGIES = new Set(['broadcast', 'least_busy', 'direct']);
 const FALLBACKS = new Set(['channel_queue', 'department_queue']);
 
+/**
+ * Normaliza un valor para uso como slug: minúsculas y sin espacios extra.
+ * @param {string} value - Valor a normalizar.
+ * @returns {string} Slug normalizado en minúsculas.
+ */
 function slug(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+/**
+ * Registra una entrada en el log de auditoría de administración.
+ * @param {Object} db - Conexión a la base de datos.
+ * @param {Object} auth - Información de autenticación del usuario.
+ * @param {number} departmentId - ID del departamento afectado.
+ * @param {string} action - Nombre de la acción auditada.
+ * @param {Object} [metadata={}] - Metadatos adicionales de la acción.
+ * @returns {Promise<void>}
+ */
 async function audit(db, auth, departmentId, action, metadata = {}) {
   await db.query(
     `INSERT INTO admin_audit_logs (company_id, actor_id, action, metadata)
@@ -15,10 +29,19 @@ async function audit(db, auth, departmentId, action, metadata = {}) {
   );
 }
 
+/**
+ * Registra las rutas de administración de departamentos.
+ * Incluye CRUD y asignación de agentes/canales a departamentos.
+ * Requiere rol 'admin' en todas las rutas.
+ * @param {Object} fastify - Instancia de Fastify.
+ * @param {Object} options - Opciones del plugin, incluye la conexión db.
+ * @returns {Promise<void>}
+ */
 module.exports = async function adminDepartmentRoutes(fastify, options) {
   const db = options.db;
   const adminOnly = requireRole('admin');
 
+  // GET /api/admin/departments — Lista todos los departamentos de la empresa con canales y agentes asignados. Rol: admin.
   fastify.get('/api/admin/departments', { preHandler: adminOnly }, async (request) => {
     const result = await db.query(
       `SELECT d.*,
@@ -38,6 +61,7 @@ module.exports = async function adminDepartmentRoutes(fastify, options) {
     }));
   });
 
+  // POST /api/admin/departments — Crea un departamento con estrategia de enrutamiento y fallback. Efectos: registro de auditoría. Rol: admin.
   fastify.post('/api/admin/departments', { preHandler: adminOnly }, async (request, reply) => {
     const body = request.body || {};
     const name = String(body.name || '').trim();
@@ -61,6 +85,7 @@ module.exports = async function adminDepartmentRoutes(fastify, options) {
     }
   });
 
+  // PATCH /api/admin/departments/:id — Actualiza nombre, estrategias, agente por defecto o estado de un departamento. Efectos: registro de auditoría. Rol: admin.
   fastify.patch('/api/admin/departments/:id', { preHandler: adminOnly }, async (request, reply) => {
     const id = Number(request.params.id);
     const body = request.body || {};
@@ -88,6 +113,7 @@ module.exports = async function adminDepartmentRoutes(fastify, options) {
     return { id };
   });
 
+  // DELETE /api/admin/departments/:id — Elimina lógicamente un departamento, desactivándolo y cambiando su slug. Efectos: registro de auditoría. Rol: admin.
   fastify.delete('/api/admin/departments/:id', { preHandler: adminOnly }, async (request, reply) => {
     const id = Number(request.params.id);
     if (!Number.isInteger(id) || id <= 0) return reply.status(400).send({ error: 'Departamento inválido' });
@@ -104,6 +130,7 @@ module.exports = async function adminDepartmentRoutes(fastify, options) {
     return reply.status(204).send();
   });
 
+  // PUT /api/admin/departments/:id/assignments — Reemplaza las asignaciones de agentes y canales de un departamento. Efectos: registro de auditoría. Rol: admin.
   fastify.put('/api/admin/departments/:id/assignments', { preHandler: adminOnly }, async (request, reply) => {
     const id = Number(request.params.id);
     const agentIds = [...new Set((request.body?.agentIds || []).map(Number))];

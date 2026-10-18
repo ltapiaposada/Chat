@@ -1,4 +1,10 @@
+/**
+ * Registra encabezados defensivos para todas las respuestas HTTP.
+ * @param {Object} fastify - Instancia del servidor.
+ * @returns {void}
+ */
 function registerSecurityHeaders(fastify) {
+  // Aplica políticas de navegador antes de entregar cada respuesta.
   fastify.addHook('onSend', async (request, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'no-referrer');

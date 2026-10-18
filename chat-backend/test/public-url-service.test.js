@@ -1,3 +1,10 @@
+/**
+ * @file public-url-service.test.js
+ * @description Pruebas del servicio de URL pública (túnel).
+ * Los tests están escritos en español. Verifican la extracción de la URL HTTPS
+ * del túnel de cloudflared, la normalización a HTTPS y que el proxy local solo
+ * expone las peticiones de webhook de WhatsApp.
+ */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const service = require('../src/services/publicUrlService');

@@ -1,3 +1,10 @@
+/**
+ * @file Asigna el canal por defecto (`demo`) a todos los usuarios con rol
+ * `client` que no tengan un `channel_id` asignado. Si algún cliente queda
+ * sin canal después de la actualización, lanza una excepción para detener
+ * la migración.
+ */
+
 exports.up = (pgm) => {
   pgm.sql(`
     UPDATE users u
